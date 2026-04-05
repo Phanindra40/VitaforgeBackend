@@ -37,6 +37,34 @@ function buildAuthCookie(value, maxAgeSeconds) {
   return parts.join("; ");
 }
 
+function isAllowedCorsOrigin(origin) {
+  if (!origin) {
+    return true;
+  }
+
+  if (env.CORS_ORIGIN === "*") {
+    return true;
+  }
+
+  if (Array.isArray(env.CORS_ORIGIN) && env.CORS_ORIGIN.includes(origin)) {
+    return true;
+  }
+
+  try {
+    const url = new URL(origin);
+    const hostname = url.hostname.toLowerCase();
+
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname.endsWith(".netlify.app") ||
+      hostname.endsWith(".bonto.run")
+    );
+  } catch (_error) {
+    return false;
+  }
+}
+
 function parseCookies(req) {
   const rawCookies = req.headers.cookie || "";
 
@@ -61,16 +89,7 @@ function isTestUiAuthenticated(req) {
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (env.CORS_ORIGIN === "*") {
-      return callback(null, true);
-    }
-
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    const isAllowed = Array.isArray(env.CORS_ORIGIN) && env.CORS_ORIGIN.includes(origin);
-    return callback(null, isAllowed);
+    return callback(null, isAllowedCorsOrigin(origin));
   },
   credentials: true,
 }));
