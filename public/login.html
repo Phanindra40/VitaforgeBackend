@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VitaForge Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1f1d1a;
+  --muted: #6b6661;
+  --paper: #fffefb;
+  --line: #e6d9c9;
+  --brand: #0a6c73;
+  --brand-2: #0f8a92;
+  --danger: #9f2f2f;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: "Space Grotesk", sans-serif;
+  background:
+    radial-gradient(1200px 600px at 10% -20%, #ffd7b8 0%, transparent 60%),
+    radial-gradient(900px 500px at 110% 110%, #c5eef1 0%, transparent 55%),
+    linear-gradient(160deg, #fff9f2 0%, #f4efe8 100%);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.card {
+  width: min(460px, 100%);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 16px 38px rgba(20, 23, 28, 0.12);
+  padding: 24px;
+}
+.kicker {
+  margin: 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+  font-weight: 700;
+}
+h1 {
+  margin: 8px 0 8px;
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+}
+.note {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+label {
+  display: block;
+  margin-top: 12px;
+  font-weight: 600;
+}
+input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  background: #fff;
+}
+button {
+  width: 100%;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.05); }
+button:disabled { opacity: 0.7; cursor: wait; }
+.status {
+  min-height: 24px;
+  margin-top: 12px;
+  color: var(--muted);
+}
+.status.error {
+  color: var(--danger);
+}
+</style>
+</head>
+<body>
+  <main class="card">
+    <p class="kicker">VitaForge</p>
+    <h1>Developer Login</h1>
+    <p class="note">Sign in to access the API test UI.</p>
+
+    <form id="loginForm">
+      <label for="username">Username</label>
+      <input id="username" name="username" autocomplete="username" placeholder="Enter username" required />
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter password" required />
+
+      <button id="loginBtn" type="submit">Open Test UI</button>
+      <p id="status" class="status">Ready.</p>
+    </form>
+  </main>
+
+<script>
+const form = document.getElementById("loginForm");
+const statusEl = document.getElementById("status");
+const button = document.getElementById("loginBtn");
+
+function setStatus(message, isError = false) {
+  statusEl.textContent = message;
+  statusEl.classList.toggle("error", isError);
+}
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const username = document.getElementById("username")?.value?.trim() || "";
+  const password = document.getElementById("password")?.value || "";
+
+  button.disabled = true;
+  button.textContent = "Signing in...";
+  setStatus("Checking credentials...");
+
+  try {
+    const response = await fetch("/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, password }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.success) {
+      setStatus(data.message || "Invalid credentials", true);
+      return;
+    }
+
+    setStatus("Login successful. Opening test UI...");
+    window.location.assign(data.redirectTo || "/test-ui");
+  } catch (error) {
+    setStatus(error.message || "Login failed", true);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Open Test UI";
+  }
+});
+</script>
+</body>
+</html>

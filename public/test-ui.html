@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VitaForge API Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1f1d1a;
+  --muted: #6b6661;
+  --paper: #fffefb;
+  --panel: #ffffff;
+  --line: #e8dfd2;
+  --brand: #b34700;
+  --brand-2: #d46a00;
+  --code: #10212f;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: radial-gradient(circle at 10% 10%, #ffe9d8 0%, #fff9f3 40%, #f7f2ec 100%);
+  font-family: "Space Grotesk", sans-serif;
+}
+.hero {
+  padding: 34px 20px 24px;
+  text-align: center;
+}
+.hero h1 {
+  margin: 0;
+  font-size: clamp(1.7rem, 4vw, 2.6rem);
+}
+.hero p {
+  margin: 8px auto 0;
+  max-width: 900px;
+  color: var(--muted);
+}
+.wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 30px;
+}
+.card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 22px rgba(17, 17, 17, 0.06);
+  margin-bottom: 14px;
+}
+.card h3 { margin: 0 0 8px; }
+.muted { color: var(--muted); }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+textarea, input, select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  font: inherit;
+  margin-top: 6px;
+}
+button {
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  padding: 9px 14px;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.05); }
+button:disabled { opacity: 0.65; cursor: wait; }
+table { width: 100%; border-collapse: collapse; }
+th, td {
+  border-bottom: 1px solid var(--line);
+  padding: 8px;
+  text-align: left;
+}
+pre {
+  margin-top: 10px;
+  background: var(--code);
+  color: #eaf2f8;
+  border-radius: 10px;
+  padding: 12px;
+  min-height: 68px;
+  overflow: auto;
+}
+.row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+@media (max-width: 860px) {
+  .grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+  <div class="hero">
+    <h1>VitaForge API Explorer</h1>
+    <p>Single-file Swagger-like playground for all backend endpoints. Primary AI routes use Groq: <strong>/api/groq/*</strong>.</p>
+    <div class="row-actions" style="justify-content: center; margin-top: 12px;">
+      <button id="btnLogout">Logout</button>
+    </div>
+  </div>
+
+  <main class="wrap">
+    <section class="card">
+      <h3>Quick Checks</h3>
+      <p class="muted">Use this for fast smoke tests before deeper API testing.</p>
+      <label for="apiBase">API Base URL</label>
+      <input id="apiBase" value="" placeholder="http://localhost:5000" />
+      <p class="muted" id="uiStatus">Ready.</p>
+      <div class="row-actions">
+        <button id="btnRoot">GET /</button>
+        <button id="btnHealth">GET /api/v1/health</button>
+        <button id="btnSmoke">Run Smoke</button>
+      </div>
+      <pre id="outSystem"></pre>
+    </section>
+
+    <section class="card">
+      <h3>Endpoint Inventory</h3>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Endpoint</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>GET</td><td>/</td><td>Service status</td></tr>
+          <tr><td>GET</td><td>/api/v1/health</td><td>Health check</td></tr>
+          <tr><td>POST</td><td>/api/groq/generate</td><td>Generate text from prompt</td></tr>
+          <tr><td>POST</td><td>/api/groq/summary-from-jd</td><td>Summary from job description</td></tr>
+          <tr><td>POST</td><td>/api/contact</td><td>Contact form submission</td></tr>
+          <tr><td>POST</td><td>/api/v1/resume/upload</td><td>Upload and parse resume</td></tr>
+          <tr><td>POST</td><td>/api/v1/resume/match</td><td>TF-IDF match score</td></tr>
+          <tr><td>POST</td><td>/api/v1/resume/ats</td><td>ATS score</td></tr>
+          <tr><td>POST</td><td>/api/v1/resume/semantic-match</td><td>Embedding similarity score</td></tr>
+          <tr><td>POST</td><td>/api/v1/resume/improve</td><td>AI resume improvement</td></tr>
+          <tr><td>POST</td><td>/api/v1/resume/recommend</td><td>Job recommendations</td></tr>
+          <tr><td>GET</td><td>/api/resumes</td><td>List resumes</td></tr>
+          <tr><td>GET</td><td>/api/resumes/:id</td><td>Get one resume</td></tr>
+          <tr><td>POST</td><td>/api/resumes</td><td>Create a resume</td></tr>
+          <tr><td>PATCH</td><td>/api/resumes/:id</td><td>Update a resume</td></tr>
+          <tr><td>DELETE</td><td>/api/resumes/:id</td><td>Delete a resume</td></tr>
+          <tr><td>PUT</td><td>/api/resumes/:id</td><td>Replace a resume</td></tr>
+          <tr><td>POST</td><td>/api/resumes/:id/duplicate</td><td>Duplicate a resume</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h3>Groq Generate</h3>
+      <textarea id="claudePrompt" rows="4" placeholder="Prompt"></textarea>
+      <button id="btnClaudeGenerate">POST /api/groq/generate</button>
+      <pre id="outClaudeGenerate"></pre>
+    </section>
+
+    <section class="card">
+      <h3>Groq Summary From JD</h3>
+      <textarea id="jobDescription" rows="5" placeholder="Job description"></textarea>
+      <button id="btnClaudeSummary">POST /api/groq/summary-from-jd</button>
+      <pre id="outClaudeSummary"></pre>
+    </section>
+
+    <section class="card">
+      <h3>Contact</h3>
+      <div class="grid">
+        <div>
+          <label>Name</label>
+          <input id="contactName" value="Test User" />
+        </div>
+        <div>
+          <label>Email</label>
+          <input id="contactEmail" value="test@example.com" />
+        </div>
+      </div>
+      <label>Message</label>
+      <textarea id="contactMessage" rows="3">Testing contact endpoint.</textarea>
+      <button id="btnContact">POST /api/contact</button>
+      <pre id="outContact"></pre>
+    </section>
+
+    <section class="card">
+      <h3>Resume Upload</h3>
+      <input type="file" id="resumeFile" accept=".pdf,.doc,.docx" />
+      <input id="uploadUserId" placeholder="Optional userId" />
+      <button id="btnUpload">POST /api/v1/resume/upload</button>
+      <pre id="outUpload"></pre>
+    </section>
+
+    <section class="card">
+      <h3>Resume Match + ATS + Semantic</h3>
+      <div class="grid">
+        <textarea id="resumeText" rows="7" placeholder="Resume text">Node.js, Express, MongoDB, REST APIs, Docker</textarea>
+        <textarea id="jobText" rows="7" placeholder="Job text">Looking for backend engineer with Node.js, MongoDB, Docker, APIs</textarea>
+      </div>
+      <div class="row-actions">
+        <button id="btnMatch">POST /api/v1/resume/match</button>
+        <button id="btnAts">POST /api/v1/resume/ats</button>
+        <button id="btnSemantic">POST /api/v1/resume/semantic-match</button>
+      </div>
+      <pre id="outMatchSuite"></pre>
+    </section>
+
+    <section class="card">
+      <h3>Resume Improve + Recommend</h3>
+      <textarea id="resumeImprove" rows="6" placeholder="Resume text to improve">Built and maintained APIs for internal tools.</textarea>
+      <div class="grid">
+        <div>
+          <button id="btnImprove">POST /api/v1/resume/improve</button>
+        </div>
+        <div>
+          <input id="recommendLimit" type="number" min="1" max="20" value="5" />
+          <button id="btnRecommend">POST /api/v1/resume/recommend</button>
+        </div>
+      </div>
+      <pre id="outImproveRecommend"></pre>
+    </section>
+
+    <section class="card">
+      <h3>Resume CRUD</h3>
+      <div class="grid">
+        <div>
+          <label for="resumeId">Resume ID</label>
+          <input id="resumeId" placeholder="Paste resume id here" />
+        </div>
+        <div>
+          <label for="resumeCrudBody">Resume JSON Body</label>
+          <input id="resumeCrudFileName" value="sample-resume.txt" placeholder="sourceFileName" />
+        </div>
+      </div>
+      <textarea id="resumeCrudBody" rows="10">{
+  "sourceFileName": "sample-resume.txt",
+  "rawText": "Backend engineer with Node.js, Express, MongoDB, and Groq integration.",
+  "parsedData": {
+    "name": "Test User",
+    "skills": ["Node.js", "Express", "MongoDB", "Groq"]
+  },
+  "embeddings": [0.12, 0.34, 0.56]
+}</textarea>
+      <div class="row-actions">
+        <button id="btnResumeList">GET /api/resumes</button>
+        <button id="btnResumeGet">GET /api/resumes/:id</button>
+        <button id="btnResumeCreate">POST /api/resumes</button>
+        <button id="btnResumePatch">PATCH /api/resumes/:id</button>
+        <button id="btnResumePut">PUT /api/resumes/:id</button>
+        <button id="btnResumeDelete">DELETE /api/resumes/:id</button>
+        <button id="btnResumeDuplicate">POST /api/resumes/:id/duplicate</button>
+      </div>
+      <pre id="outResumeCrud"></pre>
+    </section>
+  </main>
+
+<script>
+function setBusy(id, busy) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  if (busy) {
+    btn.dataset.label = btn.textContent;
+    btn.textContent = "Loading...";
+    btn.disabled = true;
+  } else {
+    btn.textContent = btn.dataset.label || btn.textContent;
+    btn.disabled = false;
+  }
+}
+
+function getApiBase() {
+  const value = document.getElementById("apiBase")?.value?.trim();
+  if (value) return value.replace(/\/$/, "");
+  if (window.location.origin && window.location.origin !== "null") return window.location.origin;
+  return "http://localhost:5000";
+}
+
+function out(id, payload) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
+}
+
+function setStatus(message) {
+  const el = document.getElementById("uiStatus");
+  if (el) el.textContent = message;
+}
+
+async function api(path, method, body, outId, buttonId, isForm = false) {
+  try {
+    setStatus(`Calling ${method} ${path}...`);
+    if (buttonId) setBusy(buttonId, true);
+    const options = { method, headers: {} };
+    const url = `${getApiBase()}${path.startsWith("/") ? path : `/${path}`}`;
+    if (body) {
+      if (isForm) {
+        options.body = body;
+      } else {
+        options.headers["Content-Type"] = "application/json";
+        options.body = JSON.stringify(body);
+      }
+    }
+    const res = await fetch(url, options);
+    const maybeJson = await res.json().catch(() => null);
+    const result = { status: res.status, success: res.ok, data: maybeJson };
+    if (outId) out(outId, result);
+    setStatus(res.ok ? `Success: ${method} ${path}` : `Request failed: ${method} ${path}`);
+    return result;
+  } catch (error) {
+    const failure = { status: 0, success: false, error: error.message || "Network error" };
+    if (outId) out(outId, failure);
+    setStatus(`Error: ${error.message || "Network error"}`);
+    return failure;
+  } finally {
+    if (buttonId) setBusy(buttonId, false);
+  }
+}
+
+function val(id) {
+  return document.getElementById(id)?.value?.trim() || "";
+}
+
+function readJson(id) {
+  const raw = val(id);
+  if (!raw) return {};
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`Invalid JSON in ${id}: ${error.message}`);
+  }
+}
+
+async function runSmoke() {
+  out("outSystem", "Running smoke tests...");
+  const resumeText = val("resumeText") || "Node.js Express MongoDB";
+  const jobText = val("jobText") || "Need Node.js engineer with MongoDB";
+  const checks = [];
+  checks.push({ endpoint: "GET /", ...(await api("/", "GET")) });
+  checks.push({ endpoint: "GET /api/v1/health", ...(await api("/api/v1/health", "GET")) });
+  checks.push({ endpoint: "POST /api/groq/generate", ...(await api("/api/groq/generate", "POST", { prompt: "Smoke test prompt" })) });
+  checks.push({ endpoint: "POST /api/v1/resume/match", ...(await api("/api/v1/resume/match", "POST", { resumeText, jobText })) });
+  checks.push({ endpoint: "POST /api/v1/resume/ats", ...(await api("/api/v1/resume/ats", "POST", { resumeText, jobText })) });
+  const summary = checks.map((r) => `${r.success ? "PASS" : "FAIL"} ${r.endpoint} -> ${r.status}`).join("\n");
+  out("outSystem", `${summary}\n\n${JSON.stringify(checks, null, 2)}`);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const apiBaseInput = document.getElementById("apiBase");
+  if (apiBaseInput && !apiBaseInput.value) {
+    apiBaseInput.value = window.location.origin && window.location.origin !== "null" ? window.location.origin : "http://localhost:5000";
+  }
+  setStatus("Ready. Click any endpoint button to test.");
+
+  document.getElementById("btnRoot")?.addEventListener("click", () => api("/", "GET", null, "outSystem", "btnRoot"));
+  document.getElementById("btnHealth")?.addEventListener("click", () => api("/api/v1/health", "GET", null, "outSystem", "btnHealth"));
+  document.getElementById("btnSmoke")?.addEventListener("click", runSmoke);
+  document.getElementById("btnLogout")?.addEventListener("click", async () => {
+    setStatus("Logging out...");
+    setBusy("btnLogout", true);
+    try {
+      await fetch("/logout", { method: "POST" });
+    } finally {
+      setBusy("btnLogout", false);
+      window.location.assign("/login");
+    }
+  });
+
+  document.getElementById("btnClaudeGenerate")?.addEventListener("click", () => {
+    api("/api/groq/generate", "POST", { prompt: val("claudePrompt") || "Write a concise backend engineer summary." }, "outClaudeGenerate", "btnClaudeGenerate");
+  });
+
+  document.getElementById("btnClaudeSummary")?.addEventListener("click", () => {
+    api("/api/groq/summary-from-jd", "POST", { jobDescription: val("jobDescription") || "Backend Node.js role with MongoDB and APIs." }, "outClaudeSummary", "btnClaudeSummary");
+  });
+
+  document.getElementById("btnContact")?.addEventListener("click", () => {
+    api("/api/contact", "POST", {
+      name: val("contactName") || "Test User",
+      email: val("contactEmail") || "test@example.com",
+      message: val("contactMessage") || "Testing contact endpoint",
+      source: "API Explorer"
+    }, "outContact", "btnContact");
+  });
+
+  document.getElementById("btnUpload")?.addEventListener("click", async () => {
+    const file = document.getElementById("resumeFile")?.files?.[0];
+    if (!file) {
+      out("outUpload", { status: 0, success: false, error: "Please choose a file first" });
+      setStatus("Choose a file before uploading.");
+      return;
+    }
+    const form = new FormData();
+    form.append("resume", file);
+    const maybeUserId = val("uploadUserId");
+    if (maybeUserId) form.append("userId", maybeUserId);
+    await api("/api/v1/resume/upload", "POST", form, "outUpload", "btnUpload", true);
+  });
+
+  document.getElementById("btnMatch")?.addEventListener("click", () => {
+    api("/api/v1/resume/match", "POST", { resumeText: val("resumeText"), jobText: val("jobText") }, "outMatchSuite", "btnMatch");
+  });
+  document.getElementById("btnAts")?.addEventListener("click", () => {
+    api("/api/v1/resume/ats", "POST", { resumeText: val("resumeText"), jobText: val("jobText") }, "outMatchSuite", "btnAts");
+  });
+  document.getElementById("btnSemantic")?.addEventListener("click", () => {
+    api("/api/v1/resume/semantic-match", "POST", { resumeText: val("resumeText"), jobText: val("jobText") }, "outMatchSuite", "btnSemantic");
+  });
+
+  document.getElementById("btnImprove")?.addEventListener("click", () => {
+    api("/api/v1/resume/improve", "POST", { text: val("resumeImprove") }, "outImproveRecommend", "btnImprove");
+  });
+  document.getElementById("btnRecommend")?.addEventListener("click", () => {
+    api("/api/v1/resume/recommend", "POST", {
+      resumeText: val("resumeImprove"),
+      limit: Number(val("recommendLimit") || "5")
+    }, "outImproveRecommend", "btnRecommend");
+  });
+
+  document.getElementById("btnResumeList")?.addEventListener("click", () => {
+    api("/api/resumes", "GET", null, "outResumeCrud", "btnResumeList");
+  });
+
+  document.getElementById("btnResumeGet")?.addEventListener("click", () => {
+    const id = val("resumeId");
+    if (!id) {
+      out("outResumeCrud", { status: 0, success: false, error: "Resume ID is required" });
+      setStatus("Resume ID is required.");
+      return;
+    }
+    api(`/api/resumes/${encodeURIComponent(id)}`, "GET", null, "outResumeCrud", "btnResumeGet");
+  });
+
+  document.getElementById("btnResumeCreate")?.addEventListener("click", () => {
+    try {
+      const body = readJson("resumeCrudBody");
+      if (!body.sourceFileName) body.sourceFileName = val("resumeCrudFileName") || "sample-resume.txt";
+      api("/api/resumes", "POST", body, "outResumeCrud", "btnResumeCreate");
+    } catch (error) {
+      out("outResumeCrud", { status: 0, success: false, error: error.message });
+      setStatus(error.message);
+    }
+  });
+
+  document.getElementById("btnResumePatch")?.addEventListener("click", () => {
+    const id = val("resumeId");
+    if (!id) {
+      out("outResumeCrud", { status: 0, success: false, error: "Resume ID is required" });
+      setStatus("Resume ID is required.");
+      return;
+    }
+
+    try {
+      const body = readJson("resumeCrudBody");
+      api(`/api/resumes/${encodeURIComponent(id)}`, "PATCH", body, "outResumeCrud", "btnResumePatch");
+    } catch (error) {
+      out("outResumeCrud", { status: 0, success: false, error: error.message });
+      setStatus(error.message);
+    }
+  });
+
+  document.getElementById("btnResumePut")?.addEventListener("click", () => {
+    const id = val("resumeId");
+    if (!id) {
+      out("outResumeCrud", { status: 0, success: false, error: "Resume ID is required" });
+      setStatus("Resume ID is required.");
+      return;
+    }
+
+    try {
+      const body = readJson("resumeCrudBody");
+      api(`/api/resumes/${encodeURIComponent(id)}`, "PUT", body, "outResumeCrud", "btnResumePut");
+    } catch (error) {
+      out("outResumeCrud", { status: 0, success: false, error: error.message });
+      setStatus(error.message);
+    }
+  });
+
+  document.getElementById("btnResumeDelete")?.addEventListener("click", () => {
+    const id = val("resumeId");
+    if (!id) {
+      out("outResumeCrud", { status: 0, success: false, error: "Resume ID is required" });
+      setStatus("Resume ID is required.");
+      return;
+    }
+
+    api(`/api/resumes/${encodeURIComponent(id)}`, "DELETE", null, "outResumeCrud", "btnResumeDelete");
+  });
+
+  document.getElementById("btnResumeDuplicate")?.addEventListener("click", () => {
+    const id = val("resumeId");
+    if (!id) {
+      out("outResumeCrud", { status: 0, success: false, error: "Resume ID is required" });
+      setStatus("Resume ID is required.");
+      return;
+    }
+
+    api(`/api/resumes/${encodeURIComponent(id)}/duplicate`, "POST", null, "outResumeCrud", "btnResumeDuplicate");
+  });
+});
+
+window.addEventListener("error", (event) => {
+  setStatus(`Runtime error: ${event.message || "Unknown error"}`);
+});
+</script>
+</body>
+</html>
