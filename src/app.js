@@ -12,6 +12,30 @@ const { notFoundHandler, errorHandler } = require("./middlewares/error.middlewar
 const app = express();
 
 const AUTH_COOKIE_NAME = "vitaforge_test_ui_auth";
+const isProductionLike = env.NODE_ENV === "production" || env.IS_RENDER;
+
+if (isProductionLike) {
+  app.set("trust proxy", 1);
+}
+
+function buildAuthCookie(value, maxAgeSeconds) {
+  const parts = [
+    `${AUTH_COOKIE_NAME}=${value}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+  ];
+
+  if (typeof maxAgeSeconds === "number") {
+    parts.push(`Max-Age=${maxAgeSeconds}`);
+  }
+
+  if (isProductionLike) {
+    parts.push("Secure");
+  }
+
+  return parts.join("; ");
+}
 
 function parseCookies(req) {
   const rawCookies = req.headers.cookie || "";
@@ -93,7 +117,7 @@ app.post("/login", (req, res) => {
     });
   }
 
-  res.setHeader("Set-Cookie", `${AUTH_COOKIE_NAME}=1; Path=/; HttpOnly; SameSite=Lax`);
+  res.setHeader("Set-Cookie", buildAuthCookie("1", 60 * 60 * 24 * 7));
 
   return res.json({
     success: true,
@@ -102,10 +126,7 @@ app.post("/login", (req, res) => {
 });
 
 app.post("/logout", (_req, res) => {
-  res.setHeader(
-    "Set-Cookie",
-    `${AUTH_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`
-  );
+  res.setHeader("Set-Cookie", buildAuthCookie("", 0));
 
   return res.json({ success: true, redirectTo: "/login" });
 });
