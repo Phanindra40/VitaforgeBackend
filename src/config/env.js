@@ -10,8 +10,14 @@ const env = {
   GROQ_MODEL: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
   GROQ_MAX_TOKENS: Number(process.env.GROQ_MAX_TOKENS || 1024),
   GROQ_TIMEOUT_MS: Number(process.env.GROQ_TIMEOUT_MS || 10000),
-  TEST_UI_LOGIN_USERNAME: process.env.TEST_UI_LOGIN_USERNAME || "",
-  TEST_UI_LOGIN_PASSWORD: process.env.TEST_UI_LOGIN_PASSWORD || "",
+  TEST_UI_LOGIN_USERNAME:
+    process.env.TEST_UI_LOGIN_USERNAME ||
+    process.env.LOGIN_USERNAME ||
+    "",
+  TEST_UI_LOGIN_PASSWORD:
+    process.env.TEST_UI_LOGIN_PASSWORD ||
+    process.env.LOGIN_PASSWORD ||
+    "",
 };
 
 module.exports = { env };

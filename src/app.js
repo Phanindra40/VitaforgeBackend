@@ -76,7 +76,7 @@ app.post("/login", (req, res) => {
   if (!configuredUsername || !configuredPassword) {
     return res.status(503).json({
       success: false,
-      message: "Login is not configured on this server",
+      message: "Login is not configured. Set TEST_UI_LOGIN_USERNAME and TEST_UI_LOGIN_PASSWORD.",
     });
   }
 
