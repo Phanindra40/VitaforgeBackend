@@ -135,8 +135,14 @@ app.use(errorHandler);
 
 async function startServer() {
   await connectDatabase();
+
+  const loginConfigured =
+    Boolean(String(env.TEST_UI_LOGIN_USERNAME || "").trim()) &&
+    Boolean(String(env.TEST_UI_LOGIN_PASSWORD || ""));
+
   app.listen(env.PORT, () => {
     console.log(`Server listening on port ${env.PORT}`);
+    console.log(`Test UI login configured: ${loginConfigured ? "YES" : "NO"}`);
   });
 }
 
