@@ -5,10 +5,23 @@ function toNumber(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function parseCorsOrigin(value) {
+  if (!value || value.trim() === "*") {
+    return "*";
+  }
+
+  const origins = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return origins.length ? origins : "*";
+}
+
 const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
   PORT: toNumber(process.env.PORT, 5000),
-  CORS_ORIGIN: process.env.CORS_ORIGIN || "*",
+  CORS_ORIGIN: parseCorsOrigin(process.env.CORS_ORIGIN || "*"),
   MONGODB_URI: process.env.MONGODB_URI || "",
   HF_API_KEY: process.env.HF_API_KEY || "",
   GROQ_API_KEY: process.env.GROQ_API_KEY || "",

@@ -60,7 +60,18 @@ function isTestUiAuthenticated(req) {
 }
 
 app.use(cors({
-  origin: env.CORS_ORIGIN === "*" ? true : env.CORS_ORIGIN,
+  origin: (origin, callback) => {
+    if (env.CORS_ORIGIN === "*") {
+      return callback(null, true);
+    }
+
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const isAllowed = Array.isArray(env.CORS_ORIGIN) && env.CORS_ORIGIN.includes(origin);
+    return callback(null, isAllowed);
+  },
   credentials: true,
 }));
 app.use(helmet({ contentSecurityPolicy: false }));
