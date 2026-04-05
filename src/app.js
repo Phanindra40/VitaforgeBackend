@@ -159,6 +159,30 @@ app.get("/test-ui", (_req, res) => {
   res.sendFile(path.join(process.cwd(), "public", "test-ui.html"));
 });
 
+app.get(["/index.html", "/login.html"], (req, res) => {
+  if (isTestUiAuthenticated(req)) {
+    return res.sendFile(path.join(process.cwd(), "public", "test-ui.html"));
+  }
+
+  return res.sendFile(path.join(process.cwd(), "public", "login.html"));
+});
+
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    return next();
+  }
+
+  if (req.path.startsWith("/api")) {
+    return next();
+  }
+
+  if (isTestUiAuthenticated(req)) {
+    return res.sendFile(path.join(process.cwd(), "public", "test-ui.html"));
+  }
+
+  return res.sendFile(path.join(process.cwd(), "public", "login.html"));
+});
+
 app.use("/api", apiRoutes);
 app.use("/api/v1", apiRoutes);
 
