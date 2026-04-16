@@ -1,4 +1,6 @@
 const { generateTextFromPrompt, generateSummaryFromJobDescription } = require("../services/ai.service");
+const { env } = require("../config/env");
+const { getOrSetJson, hashPayload } = require("../config/cache");
 
 function sendInvalidInput(res, message) {
   return res.status(400).json({
@@ -26,10 +28,19 @@ async function generate(req, res) {
   }
 
   try {
-    console.log("Generating text for prompt:", prompt.substring(0, 100));
-    const text = await generateTextFromPrompt(prompt);
-    console.log("Generated text:", text.substring(0, 100));
-    return res.status(200).json({ text });
+    const cacheKey = `ai:groq:generate:${hashPayload({ prompt })}`;
+    const payload = await getOrSetJson(
+      cacheKey,
+      async () => {
+        console.log("Generating text for prompt:", prompt.substring(0, 100));
+        const text = await generateTextFromPrompt(prompt);
+        console.log("Generated text:", text.substring(0, 100));
+        return { text };
+      },
+      env.CACHE_AI_TTL_SECONDS
+    );
+
+    return res.status(200).json(payload);
   } catch (error) {
     console.error("Groq generate error:", error.message);
     console.error("Error details:", error);
@@ -54,10 +65,19 @@ async function summaryFromJd(req, res) {
   }
 
   try {
-    console.log("Generating summary from JD, length:", jobDescription.length);
-    const text = await generateSummaryFromJobDescription(jobDescription);
-    console.log("Generated summary:", text.substring(0, 100));
-    return res.status(200).json({ text });
+    const cacheKey = `ai:groq:summary-from-jd:${hashPayload({ jobDescription })}`;
+    const payload = await getOrSetJson(
+      cacheKey,
+      async () => {
+        console.log("Generating summary from JD, length:", jobDescription.length);
+        const text = await generateSummaryFromJobDescription(jobDescription);
+        console.log("Generated summary:", text.substring(0, 100));
+        return { text };
+      },
+      env.CACHE_AI_TTL_SECONDS
+    );
+
+    return res.status(200).json(payload);
   } catch (error) {
     console.error("Groq summaryFromJd error:", error.message);
     console.error("Error details:", error);

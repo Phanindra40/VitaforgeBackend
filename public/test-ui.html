@@ -105,7 +105,7 @@ pre {
 <body>
   <div class="hero">
     <h1>VitaForge API Explorer</h1>
-    <p>Single-file Swagger-like playground for all backend endpoints. Primary AI routes use Groq: <strong>/api/groq/*</strong>.</p>
+    <p>Single-file Swagger-like playground for all backend endpoints, including Groq and Gemini AI routes.</p>
     <div class="row-actions" style="justify-content: center; margin-top: 12px;">
       <button id="btnLogout">Logout</button>
     </div>
@@ -137,6 +137,8 @@ pre {
           <tr><td>GET</td><td>/api/v1/health</td><td>Health check</td></tr>
           <tr><td>POST</td><td>/api/groq/generate</td><td>Generate text from prompt</td></tr>
           <tr><td>POST</td><td>/api/groq/summary-from-jd</td><td>Summary from job description</td></tr>
+          <tr><td>POST</td><td>/api/gemini/ats-analyze</td><td>Gemini ATS score and fit analysis</td></tr>
+          <tr><td>POST</td><td>/api/gemini/ocr-extract</td><td>Gemini OCR extract from uploaded file</td></tr>
           <tr><td>POST</td><td>/api/contact</td><td>Contact form submission</td></tr>
           <tr><td>POST</td><td>/api/v1/resume/upload</td><td>Upload and parse resume</td></tr>
           <tr><td>POST</td><td>/api/v1/resume/match</td><td>TF-IDF match score</td></tr>
@@ -156,6 +158,24 @@ pre {
     </section>
 
     <section class="card">
+      <h3>Providers List</h3>
+      <p class="muted">Quick view of external providers, backend endpoints, and environment keys used by this project.</p>
+      <table>
+        <thead>
+          <tr><th>Provider</th><th>Config / Env</th><th>Endpoint / Usage</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Clerk Authentication</td><td>VITE_CLERK_PUBLISHABLE_KEY</td><td>Frontend auth provider</td></tr>
+          <tr><td>Backend API Base</td><td>VITE_API_URL (default: http://localhost:5000)</td><td>Alternate host: https://vitaforgebackend.onrender.com</td></tr>
+          <tr><td>Groq (Resume AI)</td><td>Uses backend route proxy</td><td>/api/groq/generate, /api/groq/summary-from-jd</td></tr>
+          <tr><td>Gemini (ATS + OCR)</td><td>Uses backend route proxy</td><td>/api/gemini/ats-analyze, /api/gemini/ocr-extract</td></tr>
+          <tr><td>Contact Form Backend</td><td>VITE_CONTACT_ENDPOINT</td><td>Contact submission endpoint</td></tr>
+          <tr><td>Google AdSense</td><td>VITE_ADSENSE_CLIENT_ID, VITE_ADSENSE_SMARTTOOLS_SLOT_ID</td><td>Ad placement config for SmartTools</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card">
       <h3>Groq Generate</h3>
       <textarea id="claudePrompt" rows="4" placeholder="Prompt"></textarea>
       <button id="btnClaudeGenerate">POST /api/groq/generate</button>
@@ -167,6 +187,37 @@ pre {
       <textarea id="jobDescription" rows="5" placeholder="Job description"></textarea>
       <button id="btnClaudeSummary">POST /api/groq/summary-from-jd</button>
       <pre id="outClaudeSummary"></pre>
+    </section>
+
+    <section class="card">
+      <h3>Gemini ATS Analyze</h3>
+      <div class="grid">
+        <textarea id="geminiAtsJobDescription" rows="7" placeholder="Job description">Backend Node.js engineer with APIs, MongoDB, testing, and cloud deployment.</textarea>
+        <textarea id="geminiAtsResumeText" rows="7" placeholder="Resume text">Node.js developer with Express, MongoDB, REST API work, and CI/CD.</textarea>
+      </div>
+      <button id="btnGeminiAts">POST /api/gemini/ats-analyze</button>
+      <pre id="outGeminiAts"></pre>
+    </section>
+
+    <section class="card">
+      <h3>Gemini OCR Extract</h3>
+      <div class="grid">
+        <div>
+          <label>Document File</label>
+          <input type="file" id="geminiOcrFile" accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.txt" />
+        </div>
+        <div>
+          <label>Mode</label>
+          <select id="geminiOcrMode">
+            <option value="ocr" selected>ocr</option>
+            <option value="ocr-summary">ocr-summary</option>
+          </select>
+          <label style="margin-top: 10px; display: block;">Language</label>
+          <input id="geminiOcrLanguage" value="en" placeholder="en" />
+        </div>
+      </div>
+      <button id="btnGeminiOcr">POST /api/gemini/ocr-extract</button>
+      <pre id="outGeminiOcr"></pre>
     </section>
 
     <section class="card">
@@ -342,6 +393,7 @@ async function runSmoke() {
   checks.push({ endpoint: "GET /", ...(await api("/", "GET")) });
   checks.push({ endpoint: "GET /api/v1/health", ...(await api("/api/v1/health", "GET")) });
   checks.push({ endpoint: "POST /api/groq/generate", ...(await api("/api/groq/generate", "POST", { prompt: "Smoke test prompt" })) });
+  checks.push({ endpoint: "POST /api/gemini/ats-analyze", ...(await api("/api/gemini/ats-analyze", "POST", { jobDescription: jobText, resumeText })) });
   checks.push({ endpoint: "POST /api/v1/resume/match", ...(await api("/api/v1/resume/match", "POST", { resumeText, jobText })) });
   checks.push({ endpoint: "POST /api/v1/resume/ats", ...(await api("/api/v1/resume/ats", "POST", { resumeText, jobText })) });
   const summary = checks.map((r) => `${r.success ? "PASS" : "FAIL"} ${r.endpoint} -> ${r.status}`).join("\n");
@@ -375,6 +427,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btnClaudeSummary")?.addEventListener("click", () => {
     api("/api/groq/summary-from-jd", "POST", { jobDescription: val("jobDescription") || "Backend Node.js role with MongoDB and APIs." }, "outClaudeSummary", "btnClaudeSummary");
+  });
+
+  document.getElementById("btnGeminiAts")?.addEventListener("click", () => {
+    api("/api/gemini/ats-analyze", "POST", {
+      jobDescription: val("geminiAtsJobDescription"),
+      resumeText: val("geminiAtsResumeText")
+    }, "outGeminiAts", "btnGeminiAts");
+  });
+
+  document.getElementById("btnGeminiOcr")?.addEventListener("click", async () => {
+    const file = document.getElementById("geminiOcrFile")?.files?.[0];
+    if (!file) {
+      out("outGeminiOcr", { status: 0, success: false, error: "Please choose a file first" });
+      setStatus("Choose a file before running Gemini OCR.");
+      return;
+    }
+
+    const form = new FormData();
+    form.append("file", file);
+    form.append("mode", val("geminiOcrMode") || "ocr");
+    form.append("language", val("geminiOcrLanguage") || "en");
+
+    await api("/api/gemini/ocr-extract", "POST", form, "outGeminiOcr", "btnGeminiOcr", true);
   });
 
   document.getElementById("btnContact")?.addEventListener("click", () => {

@@ -6,6 +6,7 @@ const path = require("path");
 
 const { env } = require("./config/env");
 const { connectDatabase } = require("./config/database");
+const { warmupCacheConnection, isCacheConfigured } = require("./config/cache");
 const apiRoutes = require("./routes");
 const { notFoundHandler, errorHandler } = require("./middlewares/error.middleware");
 
@@ -210,6 +211,10 @@ app.use(errorHandler);
 
 async function startServer() {
   await connectDatabase();
+
+  if (isCacheConfigured()) {
+    await warmupCacheConnection();
+  }
 
   const loginConfigured =
     Boolean(String(env.TEST_UI_LOGIN_USERNAME || "").trim()) &&

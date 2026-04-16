@@ -6,7 +6,11 @@ function notFoundHandler(req, res) {
 }
 
 function errorHandler(error, _req, res, _next) {
-  const status = error.status || 500;
+  const status =
+    error.status ||
+    error.statusCode ||
+    (error.name === "MulterError" ? 400 : 500);
+
   console.error("Error:", error.message, error.stack);
   res.status(status).json({
     error: error.message || "Internal Server Error",
