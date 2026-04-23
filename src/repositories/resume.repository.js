@@ -1,8 +1,5 @@
 const mongoose = require("mongoose");
-const { randomUUID } = require("crypto");
 const Resume = require("../models/Resume");
-
-const memoryStore = new Map();
 
 function isDbReady() {
   return mongoose.connection.readyState === 1;
@@ -14,95 +11,51 @@ function toPlainResume(doc) {
   return { ...doc };
 }
 
-function cloneValue(value) {
-  if (value === null || value === undefined) return value;
-  if (typeof value !== "object") return value;
-  return JSON.parse(JSON.stringify(value));
-}
-
-function normalizeMemoryResume(doc) {
-  if (!doc) return null;
-  return {
-    ...doc,
-    _id: String(doc._id),
-    id: String(doc._id),
-  };
-}
-
-function sortByRecent(a, b) {
-  return new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0);
-}
-
-function buildMemoryResume(payload) {
-  const id = randomUUID();
-  const now = new Date().toISOString();
-  const resume = {
-    _id: id,
-    id,
-    createdAt: now,
-    updatedAt: now,
-    ...cloneValue(payload),
-  };
-
-  memoryStore.set(id, resume);
-  return normalizeMemoryResume(resume);
+function createDatabaseUnavailableError() {
+  const error = new Error("MongoDB is not connected. Resume data cannot be saved without a database.");
+  error.status = 503;
+  return error;
 }
 
 async function createResume(payload) {
-  if (isDbReady()) {
-    const created = await Resume.create(payload);
-    return toPlainResume(created);
+  if (!isDbReady()) {
+    throw createDatabaseUnavailableError();
   }
 
-  return buildMemoryResume(payload);
+  const created = await Resume.create(payload);
+  return toPlainResume(created);
 }
 
 async function listResumes() {
-  if (isDbReady()) {
-    return Resume.find().sort({ createdAt: -1 }).lean();
+  if (!isDbReady()) {
+    throw createDatabaseUnavailableError();
   }
 
-  return Array.from(memoryStore.values())
-    .map(normalizeMemoryResume)
-    .sort(sortByRecent);
+  return Resume.find().sort({ createdAt: -1 }).lean();
 }
 
 async function getResumeById(id) {
   if (!id) return null;
 
-  if (isDbReady()) {
-    return Resume.findById(id).lean();
+  if (!isDbReady()) {
+    throw createDatabaseUnavailableError();
   }
 
-  return normalizeMemoryResume(memoryStore.get(id));
+  return Resume.findById(id).lean();
 }
 
 async function updateResumeById(id, updates) {
   if (!id) return null;
 
-  if (isDbReady()) {
-    const updated = await Resume.findByIdAndUpdate(id, updates, {
-      new: true,
-      runValidators: true,
-    }).lean();
-    return updated || null;
+  if (!isDbReady()) {
+    throw createDatabaseUnavailableError();
   }
 
-  const current = memoryStore.get(id);
-  if (!current) return null;
-
-  const now = new Date().toISOString();
-  const next = {
-    ...current,
-    ...cloneValue(updates),
-    _id: id,
-    id,
-    createdAt: current.createdAt,
-    updatedAt: now,
-  };
-
-  memoryStore.set(id, next);
-  return normalizeMemoryResume(next);
+  const updated = await Resume.findByIdAndUpdate(id, updates, {
+    new: true,
+    runValidators: true,
+  }).lean();
+  return updated || null;
 }
 
 async function replaceResumeById(id, payload) {
@@ -112,15 +65,11 @@ async function replaceResumeById(id, payload) {
 async function deleteResumeById(id) {
   if (!id) return null;
 
-  if (isDbReady()) {
-    return Resume.findByIdAndDelete(id).lean();
+  if (!isDbReady()) {
+    throw createDatabaseUnavailableError();
   }
 
-  const existing = memoryStore.get(id);
-  if (!existing) return null;
-
-  memoryStore.delete(id);
-  return normalizeMemoryResume(existing);
+  return Resume.findByIdAndDelete(id).lean();
 }
 
 async function duplicateResumeById(id) {
@@ -131,7 +80,7 @@ async function duplicateResumeById(id) {
     ...existing,
     sourceFileName: existing.sourceFileName ? `${existing.sourceFileName} (copy)` : "resume-copy.txt",
     rawText: existing.rawText || "",
-    parsedData: cloneValue(existing.parsedData || {}),
+    parsedData: JSON.parse(JSON.stringify(existing.parsedData || {})),
     embeddings: Array.isArray(existing.embeddings) ? [...existing.embeddings] : [],
   };
 

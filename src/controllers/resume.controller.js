@@ -7,6 +7,7 @@ const { calculateATSScore } = require("../services/ats.service");
 const { semanticMatchScore } = require("../services/embedding.service");
 const { improveResumeText } = require("../services/ai.service");
 const { recommendJobsForResume } = require("../services/recommendation.service");
+const mongoose = require("mongoose");
 const {
   saveParsedResume,
   createResume,
@@ -30,6 +31,10 @@ function notFound(message) {
   return error;
 }
 
+function isValidObjectId(id) {
+  return mongoose.Types.ObjectId.isValid(id);
+}
+
 function parseMaybeJson(value, fallback) {
   if (value === undefined || value === null || value === "") return fallback;
   if (typeof value === "object") return value;
@@ -44,17 +49,27 @@ function parseMaybeJson(value, fallback) {
 function normalizeResumePayload(body = {}) {
   return {
     userId: body.userId || undefined,
-    sourceFileName: body.sourceFileName || body.fileName || "resume.txt",
-    rawText: body.rawText || body.text || "Imported via API",
-    parsedData: parseMaybeJson(body.parsedData, {}),
-    embeddings: Array.isArray(body.embeddings) ? body.embeddings : parseMaybeJson(body.embeddings, []),
+    sourceFileName: body.sourceFileName || body.fileName || undefined,
+    rawText: body.rawText || body.text || undefined,
+    parsedData: parseMaybeJson(body.parsedData, undefined),
+    embeddings: Array.isArray(body.embeddings) ? body.embeddings : parseMaybeJson(body.embeddings, undefined),
+    
+    // Frontend resume builder fields - pass through as-is
+    name: body.name,
+    template: body.template,
+    spacingMode: body.spacingMode,
+    personalInfo: body.personalInfo,
+    summary: body.summary,
+    experiences: body.experiences,
+    projects: body.projects,
+    education: body.education,
+    skills: body.skills,
+    sectionTitles: body.sectionTitles,
+    
+    // Legacy fields
     title: body.title,
     role: body.role,
-    summary: body.summary,
-    skills: parseMaybeJson(body.skills, body.skills || []),
-    experience: parseMaybeJson(body.experience, body.experience || []),
-    education: parseMaybeJson(body.education, body.education || []),
-    contact: parseMaybeJson(body.contact, body.contact || {}),
+    contact: body.contact,
   };
 }
 
@@ -110,10 +125,15 @@ async function getAllResumes(req, res, next) {
 
 async function getResume(req, res, next) {
   try {
-    const itemCacheKey = `resume:item:${req.params.id}`;
+    const id = req.params.id;
+    if (!isValidObjectId(id)) {
+      throw badRequest(`Invalid resume ID format. Expected MongoDB ObjectId, got: ${id}. Make sure you're using the "_id" returned from the POST /api/resumes response, not a frontend UUID.`);
+    }
+    
+    const itemCacheKey = `resume:item:${id}`;
     const resume = await getOrSetJson(
       itemCacheKey,
-      async () => getResumeById(req.params.id),
+      async () => getResumeById(id),
       env.CACHE_RESUME_TTL_SECONDS
     );
 
@@ -137,9 +157,14 @@ async function createNewResume(req, res, next) {
 
 async function patchResume(req, res, next) {
   try {
-    const updated = await updateResumeById(req.params.id, normalizeResumePayload(req.body || {}));
+    const id = req.params.id;
+    if (!isValidObjectId(id)) {
+      throw badRequest(`Invalid resume ID format. Expected MongoDB ObjectId, got: ${id}. Make sure you're using the "_id" returned from the POST /api/resumes response, not a frontend UUID.`);
+    }
+    
+    const updated = await updateResumeById(id, normalizeResumePayload(req.body || {}));
     if (!updated) throw notFound("Resume not found");
-    await invalidateResumeReadCache(req.params.id);
+    await invalidateResumeReadCache(id);
     return res.status(200).json({ resume: updated });
   } catch (error) {
     next(error);
@@ -148,9 +173,14 @@ async function patchResume(req, res, next) {
 
 async function putResume(req, res, next) {
   try {
-    const updated = await replaceResumeById(req.params.id, normalizeResumePayload(req.body || {}));
+    const id = req.params.id;
+    if (!isValidObjectId(id)) {
+      throw badRequest(`Invalid resume ID format. Expected MongoDB ObjectId, got: ${id}. Make sure you're using the "_id" returned from the POST /api/resumes response, not a frontend UUID.`);
+    }
+    
+    const updated = await replaceResumeById(id, normalizeResumePayload(req.body || {}));
     if (!updated) throw notFound("Resume not found");
-    await invalidateResumeReadCache(req.params.id);
+    await invalidateResumeReadCache(id);
     return res.status(200).json({ resume: updated });
   } catch (error) {
     next(error);
@@ -159,9 +189,14 @@ async function putResume(req, res, next) {
 
 async function removeResume(req, res, next) {
   try {
-    const deleted = await deleteResumeById(req.params.id);
+    const id = req.params.id;
+    if (!isValidObjectId(id)) {
+      throw badRequest(`Invalid resume ID format. Expected MongoDB ObjectId, got: ${id}. Make sure you're using the "_id" returned from the POST /api/resumes response, not a frontend UUID.`);
+    }
+    
+    const deleted = await deleteResumeById(id);
     if (!deleted) throw notFound("Resume not found");
-    await invalidateResumeReadCache(req.params.id);
+    await invalidateResumeReadCache(id);
     return res.status(200).json({ deleted: true, resume: deleted });
   } catch (error) {
     next(error);
@@ -170,7 +205,12 @@ async function removeResume(req, res, next) {
 
 async function duplicateResume(req, res, next) {
   try {
-    const duplicated = await duplicateResumeById(req.params.id);
+    const id = req.params.id;
+    if (!isValidObjectId(id)) {
+      throw badRequest(`Invalid resume ID format. Expected MongoDB ObjectId, got: ${id}. Make sure you're using the "_id" returned from the POST /api/resumes response, not a frontend UUID.`);
+    }
+    
+    const duplicated = await duplicateResumeById(id);
     if (!duplicated) throw notFound("Resume not found");
     await invalidateResumeReadCache(duplicated?._id?.toString());
     return res.status(201).json({ resume: duplicated });

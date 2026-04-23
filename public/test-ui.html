@@ -105,7 +105,7 @@ pre {
 <body>
   <div class="hero">
     <h1>VitaForge API Explorer</h1>
-    <p>Single-file Swagger-like playground for all backend endpoints, including Groq and Gemini AI routes.</p>
+    <p>Single-file Swagger-like playground for all backend endpoints, including Mongo-backed resume save and retrieve flows.</p>
     <div class="row-actions" style="justify-content: center; margin-top: 12px;">
       <button id="btnLogout">Logout</button>
     </div>
@@ -117,6 +117,7 @@ pre {
       <p class="muted">Use this for fast smoke tests before deeper API testing.</p>
       <label for="apiBase">API Base URL</label>
       <input id="apiBase" value="" placeholder="http://localhost:5000" />
+      <p class="muted">Set the backend base URL above, then use the Mongo resume section to save into the connected cluster and retrieve stored data.</p>
       <p class="muted" id="uiStatus">Ready.</p>
       <div class="row-actions">
         <button id="btnRoot">GET /</button>
@@ -276,7 +277,8 @@ pre {
     </section>
 
     <section class="card">
-      <h3>Resume CRUD</h3>
+      <h3>Mongo Resume Storage</h3>
+      <p class="muted">These endpoints hit the backend resume API directly. When MongoDB is connected through <code>MONGODB_URI</code>, POST saves into the <code>resumes</code> collection and GET retrieves from that cluster.</p>
       <div class="grid">
         <div>
           <label for="resumeId">Resume ID</label>
@@ -297,13 +299,13 @@ pre {
   "embeddings": [0.12, 0.34, 0.56]
 }</textarea>
       <div class="row-actions">
-        <button id="btnResumeList">GET /api/resumes</button>
-        <button id="btnResumeGet">GET /api/resumes/:id</button>
-        <button id="btnResumeCreate">POST /api/resumes</button>
-        <button id="btnResumePatch">PATCH /api/resumes/:id</button>
-        <button id="btnResumePut">PUT /api/resumes/:id</button>
-        <button id="btnResumeDelete">DELETE /api/resumes/:id</button>
-        <button id="btnResumeDuplicate">POST /api/resumes/:id/duplicate</button>
+        <button id="btnResumeList">Retrieve all</button>
+        <button id="btnResumeGet">Retrieve one</button>
+        <button id="btnResumeCreate">Save new</button>
+        <button id="btnResumePatch">Update existing</button>
+        <button id="btnResumePut">Replace existing</button>
+        <button id="btnResumeDelete">Delete existing</button>
+        <button id="btnResumeDuplicate">Duplicate existing</button>
       </div>
       <pre id="outResumeCrud"></pre>
     </section>
