@@ -1,66 +1,343 @@
 const nlp = require("compromise");
 
+/* -------------------------------------------------------------------------- */
+/*                              SKILL KEYWORDS                                */
+/* -------------------------------------------------------------------------- */
+
 const SKILL_KEYWORDS = [
   "javascript",
   "typescript",
   "node",
+  "node.js",
   "express",
   "react",
   "next.js",
+  "angular",
+  "vue",
   "mongodb",
+  "mysql",
+  "postgresql",
   "sql",
   "python",
   "java",
+  "c",
+  "c++",
   "aws",
+  "azure",
   "docker",
   "kubernetes",
-  "rest",
+  "redis",
+  "firebase",
   "graphql",
+  "rest",
+  "rest api",
   "git",
+  "github",
   "ci/cd",
+  "jenkins",
   "testing",
   "jest",
-  "redis",
+  "mocha",
+  "tailwind",
+  "bootstrap",
   "microservices",
+  "websocket",
+  "webrtc",
+  "machine learning",
+  "ai",
+  "nlp",
 ];
 
-function extractSection(text, heading) {
-  const regex = new RegExp(`${heading}([\\s\\S]*?)(\\n[A-Z][A-Za-z ]+:|$)`, "i");
+/* -------------------------------------------------------------------------- */
+/*                             TEXT NORMALIZATION                             */
+/* -------------------------------------------------------------------------- */
+
+function normalizeText(text) {
+  if (typeof text !== "string") {
+    return "";
+  }
+
+  return text
+    .replace(/\r/g, "")
+    .replace(/\t/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                UNIQUE HELPER                               */
+/* -------------------------------------------------------------------------- */
+
+function unique(items = []) {
+  return [
+    ...new Set(
+      items
+        .filter(Boolean)
+        .map((item) =>
+          String(item).trim()
+        )
+    ),
+  ];
+}
+
+/* -------------------------------------------------------------------------- */
+/*                            SECTION EXTRACTION                              */
+/* -------------------------------------------------------------------------- */
+
+function extractSection(
+  text,
+  heading
+) {
+  if (!text || !heading) {
+    return "";
+  }
+
+  /**
+   * Matches:
+   * SUMMARY
+   * Summary:
+   * Summary
+   */
+
+  const regex = new RegExp(
+    `(?:^|\\n)\\s*${heading}\\s*[:\\n]?([\\s\\S]*?)(?=\\n\\s*[A-Z][A-Za-z &]+\\s*:?\\n|$)`,
+    "i"
+  );
+
   const match = text.match(regex);
+
   return match?.[1]?.trim() || "";
 }
 
+/* -------------------------------------------------------------------------- */
+/*                              SKILL EXTRACTION                              */
+/* -------------------------------------------------------------------------- */
+
 function extractSkills(text) {
-  const lower = text.toLowerCase();
-  return SKILL_KEYWORDS.filter((skill) => lower.includes(skill)).sort();
+  const normalized =
+    normalizeText(text).toLowerCase();
+
+  const detectedSkills =
+    SKILL_KEYWORDS.filter((skill) => {
+      /**
+       * Exact word boundary matching
+       * Prevents partial false matches
+       */
+
+      const escaped =
+        skill.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&"
+        );
+
+      const regex = new RegExp(
+        `\\b${escaped}\\b`,
+        "i"
+      );
+
+      return regex.test(normalized);
+    });
+
+  return unique(detectedSkills).sort();
 }
 
-function unique(items = []) {
-  return [...new Set(items.filter(Boolean))];
+/* -------------------------------------------------------------------------- */
+/*                             EMAIL EXTRACTION                               */
+/* -------------------------------------------------------------------------- */
+
+function extractEmails(doc) {
+  try {
+    return unique(
+      doc.emails().out("array")
+    );
+  } catch {
+    return [];
+  }
 }
 
-function extractEntities(text) {
-  const doc = nlp(text || "");
+/* -------------------------------------------------------------------------- */
+/*                             PHONE EXTRACTION                               */
+/* -------------------------------------------------------------------------- */
 
-  const emails = unique(doc.emails().out("array"));
-  const phones = unique(doc.phoneNumbers().out("array"));
-  const names = unique(doc.people().out("array"));
-  const organizations = unique(doc.organizations().out("array"));
-  const skills = unique(extractSkills(text));
+function extractPhones(doc) {
+  try {
+    return unique(
+      doc.phoneNumbers().out("array")
+    );
+  } catch {
+    return [];
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              NAME EXTRACTION                               */
+/* -------------------------------------------------------------------------- */
+
+function extractNames(doc) {
+  try {
+    return unique(
+      doc.people().out("array")
+    );
+  } catch {
+    return [];
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                        ORGANIZATION EXTRACTION                             */
+/* -------------------------------------------------------------------------- */
+
+function extractOrganizations(doc) {
+  try {
+    return unique(
+      doc.organizations().out("array")
+    );
+  } catch {
+    return [];
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                          LINK EXTRACTION                                   */
+/* -------------------------------------------------------------------------- */
+
+function extractLinks(text) {
+  const matches =
+    text.match(
+      /(https?:\/\/[^\s]+)/gi
+    ) || [];
+
+  return unique(matches);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                         GITHUB EXTRACTION                                  */
+/* -------------------------------------------------------------------------- */
+
+function extractGithub(text) {
+  const links =
+    extractLinks(text);
+
+  return unique(
+    links.filter((link) =>
+      link.includes("github.com")
+    )
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                        LINKEDIN EXTRACTION                                 */
+/* -------------------------------------------------------------------------- */
+
+function extractLinkedin(text) {
+  const links =
+    extractLinks(text);
+
+  return unique(
+    links.filter((link) =>
+      link.includes(
+        "linkedin.com"
+      )
+    )
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                          MAIN ENTITY EXTRACTION                            */
+/* -------------------------------------------------------------------------- */
+
+function extractEntities(text = "") {
+  const cleanedText =
+    normalizeText(text);
+
+  const doc = nlp(cleanedText);
+
+  const names =
+    extractNames(doc);
+
+  const emails =
+    extractEmails(doc);
+
+  const phones =
+    extractPhones(doc);
+
+  const organizations =
+    extractOrganizations(doc);
+
+  const skills =
+    extractSkills(cleanedText);
+
+  const github =
+    extractGithub(cleanedText);
+
+  const linkedin =
+    extractLinkedin(cleanedText);
+
+  const sections = {
+    summary:
+      extractSection(
+        cleanedText,
+        "summary"
+      ),
+
+    experience:
+      extractSection(
+        cleanedText,
+        "experience"
+      ),
+
+    education:
+      extractSection(
+        cleanedText,
+        "education"
+      ),
+
+    projects:
+      extractSection(
+        cleanedText,
+        "projects"
+      ),
+
+    skills:
+      extractSection(
+        cleanedText,
+        "skills"
+      ),
+
+    certifications:
+      extractSection(
+        cleanedText,
+        "certifications"
+      ),
+  };
 
   return {
     names,
+
     emails,
+
     phones,
+
     organizations,
+
     skills,
-    sections: {
-      summary: extractSection(text, "summary[:\\n ]"),
-      experience: extractSection(text, "experience[:\\n ]"),
-      education: extractSection(text, "education[:\\n ]"),
-      projects: extractSection(text, "projects[:\\n ]"),
-    },
+
+    github,
+
+    linkedin,
+
+    sections,
   };
 }
 
-module.exports = { extractEntities };
+/* -------------------------------------------------------------------------- */
+/*                                  EXPORTS                                   */
+/* -------------------------------------------------------------------------- */
+
+module.exports = {
+  extractEntities,
+
+  extractSkills,
+
+  extractSection,
+};
