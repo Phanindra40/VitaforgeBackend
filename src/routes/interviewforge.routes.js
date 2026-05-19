@@ -35,8 +35,8 @@ const evaluateLimiter = rateLimit({
 
 router.post("/upload", optionalBearerAuth, upload.single("file"), controller.uploadResume);
 router.post("/parse", optionalBearerAuth, controller.parseResume);
-router.post("/generate", requireBearerAuth, generateLimiter, controller.generateQuestions);
-router.post("/generate-async", requireBearerAuth, generateLimiter, controller.generateQuestionsAsync);
+router.post("/generate", optionalBearerAuth, generateLimiter, controller.generateQuestions);
+router.post("/generate-async", optionalBearerAuth, generateLimiter, controller.generateQuestionsAsync);
 router.get("/jobs/:jobId", requireBearerAuth, controller.getJobStatus);
 router.get("/questions/:sessionId", requireBearerAuth, controller.getQuestions);
 router.post("/mock/start", requireBearerAuth, controller.startMock);
