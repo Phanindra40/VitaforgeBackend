@@ -46,6 +46,8 @@ const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
   GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-2.5-flash",
   GEMINI_TIMEOUT_MS: toNumber(process.env.GEMINI_TIMEOUT_MS, 15000),
+  INTERVIEWFORGE_API_TOKEN: process.env.INTERVIEWFORGE_API_TOKEN || "",
+  INTERVIEWFORGE_JWT_SECRET: process.env.INTERVIEWFORGE_JWT_SECRET || "",
   TEST_UI_LOGIN_USERNAME:
     process.env.TEST_UI_LOGIN_USERNAME ||
     process.env.TEST_UI_USERNAME ||

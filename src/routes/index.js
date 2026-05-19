@@ -3,6 +3,7 @@ const resumeRoutes = require("./resume.routes");
 const aiRoutes = require("./groq.routes");
 const geminiRoutes = require("./gemini.routes");
 const contactRoutes = require("./contact.routes");
+const interviewForgeRoutes = require("./interviewforge.routes");
 
 const router = express.Router();
 
@@ -16,5 +17,6 @@ router.use("/claude", aiRoutes);
 router.use("/gemini", aiRoutes);
 router.use("/gemini", geminiRoutes);
 router.use("/contact", contactRoutes);
+router.use("/interviewforge", interviewForgeRoutes);
 
 module.exports = router;

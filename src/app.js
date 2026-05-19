@@ -177,6 +177,7 @@ app.use((req, res, next) => {
 });
 
 app.use(express.static(path.join(process.cwd(), "public")));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.get("/test-ui", (_req, res) => {
   res.sendFile(path.join(process.cwd(), "public", "test-ui.html"));
 });

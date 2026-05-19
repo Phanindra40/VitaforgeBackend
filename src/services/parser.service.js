@@ -17,11 +17,15 @@ async function extractText(filePath, originalName = "") {
     return result.value || "";
   }
 
-  if (extension === ".doc") {
-    throw new Error(".doc files are not supported. Please upload PDF or DOCX.");
+  if (extension === ".txt") {
+    return fs.readFileSync(filePath, "utf8");
   }
 
-  throw new Error("Unsupported file type. Upload PDF or DOCX.");
+  if (extension === ".doc") {
+    throw new Error(".doc files are not supported. Please upload PDF, DOCX, or TXT.");
+  }
+
+  throw new Error("Unsupported file type. Upload PDF, DOCX, or TXT.");
 }
 
 module.exports = { extractText };

@@ -7,7 +7,7 @@
 ## Run
 
 1. Create `.env`
-2. Fill keys as needed (`MONGODB_URI`, `HF_API_KEY`, `GROQ_API_KEY`, `TEST_UI_LOGIN_USERNAME`, `TEST_UI_LOGIN_PASSWORD`)
+2. Fill keys as needed (`MONGODB_URI`, `HF_API_KEY`, `GROQ_API_KEY`, `TEST_UI_LOGIN_USERNAME`, `TEST_UI_LOGIN_PASSWORD`, `INTERVIEWFORGE_API_TOKEN`, `INTERVIEWFORGE_JWT_SECRET`)
 3. Start server:
 
 ```bash
@@ -67,6 +67,29 @@ Login first, then access the API test page.
 - `POST /api/v1/resume/semantic-match` (`resumeText`, `jobText`)
 - `POST /api/v1/resume/improve` (`text`)
 - `POST /api/v1/resume/recommend` (`resumeText`, optional `limit`)
+- `POST /api/interviewforge/upload` (multipart `file`; accepts `.pdf`, `.docx`, `.doc`, `.txt`)
+- `POST /api/interviewforge/parse` (`text`)
+- `POST /api/interviewforge/generate` (`resumeText` or `resumeId`, optional `skills`, `experienceSummary`, `targetRole`, `targetCompanies`, `interviewType`, `difficulty`, `maxQuestions`, `premium`)
+- `POST /api/interviewforge/generate-async`
+- `GET /api/interviewforge/jobs/:jobId`
+- `GET /api/interviewforge/questions/:sessionId`
+- `POST /api/interviewforge/mock/start`
+- `POST /api/interviewforge/mock/:mockId/answer`
+- `POST /api/interviewforge/evaluate`
+- `POST /api/interviewforge/chat`
+- `GET /api/interviewforge/preferences`
+- `POST /api/interviewforge/preferences`
+- `GET /api/interviewforge/insights`
+- `POST /api/interviewforge/insights`
+- `GET /api/interviewforge/sessions`
+- `DELETE /api/interviewforge/session/:sessionId`
+- `POST /api/interviewforge/questions/:sessionId/bookmark`
+
+## InterviewForge Auth
+
+- Protected InterviewForge endpoints accept `Authorization: Bearer <token>`.
+- Set `INTERVIEWFORGE_JWT_SECRET` for JWT validation with `sub` and `scope` claims, and `INTERVIEWFORGE_API_TOKEN` for legacy dev token mode.
+- If neither token setting is present, the routes still work in development mode without validation.
 
 ## Folder Structure
 
@@ -87,8 +110,3 @@ uploads/
 ```
 
 ## Notes
-
-- If `MONGODB_URI` is not set, API still runs (resume save skipped, jobs use fallback seed data).
-- Semantic matching requires Hugging Face key.
-- Resume improvement requires Groq API key.
-- Gemini OCR extraction requires `GEMINI_API_KEY`.

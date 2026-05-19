@@ -1,7 +1,12 @@
 function notFoundHandler(req, res) {
   res.status(404).json({
-    error: "Not Found",
-    path: req.originalUrl,
+    error: {
+      code: "NOT_FOUND",
+      message: "Not Found",
+      details: {
+        path: req.originalUrl,
+      },
+    },
   });
 }
 
@@ -13,7 +18,11 @@ function errorHandler(error, _req, res, _next) {
 
   console.error("Error:", error.message, error.stack);
   res.status(status).json({
-    error: error.message || "Internal Server Error",
+    error: {
+      code: error.code || (status === 500 ? "INTERNAL_SERVER_ERROR" : "ERROR"),
+      message: error.message || "Internal Server Error",
+      details: error.details || undefined,
+    },
   });
 }
 

@@ -9,7 +9,7 @@ const storage = multer.diskStorage({
   },
 });
 
-const allowedExtensions = new Set([".pdf", ".doc", ".docx"]);
+const allowedExtensions = new Set([".pdf", ".doc", ".docx", ".txt"]);
 
 function fileFilter(_req, file, cb) {
   const extension = path.extname(file.originalname).toLowerCase();
