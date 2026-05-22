@@ -138,6 +138,10 @@ pre {
           <tr><td>GET</td><td>/api/v1/health</td><td>Health check</td></tr>
           <tr><td>POST</td><td>/api/groq/generate</td><td>Generate text from prompt</td></tr>
           <tr><td>POST</td><td>/api/groq/summary-from-jd</td><td>Summary from job description</td></tr>
+          <tr><td>POST</td><td>/api/interviewforge/generate</td><td>Generate interview questions</td></tr>
+          <tr><td>POST</td><td>/api/interviewforge/generate-async</td><td>Start async interview generation job</td></tr>
+          <tr><td>POST</td><td>/api/interviewforge/upload</td><td>Upload and extract resume text</td></tr>
+          <tr><td>POST</td><td>/api/interviewforge/parse</td><td>Parse pasted resume text</td></tr>
           <tr><td>POST</td><td>/api/gemini/ats-analyze</td><td>Gemini ATS score and fit analysis</td></tr>
           <tr><td>POST</td><td>/api/gemini/ocr-extract</td><td>Gemini OCR extract from uploaded file</td></tr>
           <tr><td>POST</td><td>/api/contact</td><td>Contact form submission</td></tr>
@@ -169,6 +173,7 @@ pre {
           <tr><td>Clerk Authentication</td><td>VITE_CLERK_PUBLISHABLE_KEY</td><td>Frontend auth provider</td></tr>
           <tr><td>Backend API Base</td><td>VITE_API_URL (default: http://localhost:5000)</td><td>Alternate host: https://vitaforgebackend.onrender.com</td></tr>
           <tr><td>Groq (Resume AI)</td><td>Uses backend route proxy</td><td>/api/groq/generate, /api/groq/summary-from-jd</td></tr>
+          <tr><td>InterviewForge</td><td>Optional bearer auth</td><td>/api/interviewforge/generate, /api/interviewforge/upload, /api/interviewforge/parse</td></tr>
           <tr><td>Gemini (ATS + OCR)</td><td>Uses backend route proxy</td><td>/api/gemini/ats-analyze, /api/gemini/ocr-extract</td></tr>
           <tr><td>Contact Form Backend</td><td>VITE_CONTACT_ENDPOINT</td><td>Contact submission endpoint</td></tr>
           <tr><td>Google AdSense</td><td>VITE_ADSENSE_CLIENT_ID, VITE_ADSENSE_SMARTTOOLS_SLOT_ID</td><td>Ad placement config for SmartTools</td></tr>
@@ -188,6 +193,79 @@ pre {
       <textarea id="jobDescription" rows="5" placeholder="Job description"></textarea>
       <button id="btnClaudeSummary">POST /api/groq/summary-from-jd</button>
       <pre id="outClaudeSummary"></pre>
+    </section>
+
+    <section class="card">
+      <h3>InterviewForge Generate</h3>
+      <div class="grid">
+        <div>
+          <label>Resume Text</label>
+          <textarea id="ifResumeText" rows="6" placeholder="Resume text">Node.js developer with Express, MongoDB, REST APIs, and CI/CD.</textarea>
+        </div>
+        <div>
+          <label>Experience Summary</label>
+          <textarea id="ifExperienceSummary" rows="6" placeholder="Experience summary">Built backend APIs and integrated cloud services.</textarea>
+        </div>
+      </div>
+      <div class="grid">
+        <div>
+          <label>Skills, comma separated</label>
+          <input id="ifSkills" value="Node.js, Express, MongoDB, REST APIs" />
+        </div>
+        <div>
+          <label>Target Role</label>
+          <input id="ifTargetRole" value="Backend Engineer" />
+        </div>
+      </div>
+      <div class="grid">
+        <div>
+          <label>Target Companies, comma separated</label>
+          <input id="ifTargetCompanies" value="Company A, Company B" />
+        </div>
+        <div>
+          <label>Interview Type</label>
+          <input id="ifInterviewType" value="technical" />
+        </div>
+      </div>
+      <div class="grid">
+        <div>
+          <label>Difficulty</label>
+          <select id="ifDifficulty">
+            <option value="easy">easy</option>
+            <option value="medium" selected>medium</option>
+            <option value="hard">hard</option>
+          </select>
+        </div>
+        <div>
+          <label>Max Questions</label>
+          <input id="ifMaxQuestions" type="number" min="1" max="25" value="12" />
+        </div>
+      </div>
+      <div class="row-actions">
+        <button id="btnIfGenerate">POST /api/interviewforge/generate</button>
+        <button id="btnIfGenerateAsync">POST /api/interviewforge/generate-async</button>
+      </div>
+      <pre id="outIfGenerate"></pre>
+    </section>
+
+    <section class="card">
+      <h3>InterviewForge Upload + Parse</h3>
+      <div class="grid">
+        <div>
+          <label>Resume File</label>
+          <input type="file" id="ifUploadFile" accept=".pdf,.doc,.docx,.txt" />
+        </div>
+        <div>
+          <label>Parsed Text</label>
+          <textarea id="ifParseText" rows="6" placeholder="Paste resume text here">Node.js developer with Express, MongoDB, REST APIs, and CI/CD.</textarea>
+        </div>
+      </div>
+      <div class="row-actions">
+        <button id="btnIfUpload">POST /api/interviewforge/upload</button>
+        <button id="btnIfParse">POST /api/interviewforge/parse</button>
+      </div>
+      <pre id="outIfUpload"></pre>
+      <pre id="outIfParse"></pre>
     </section>
 
     <section class="card">
@@ -387,6 +465,13 @@ function readJson(id) {
   }
 }
 
+function csvList(id) {
+  return val(id)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 async function runSmoke() {
   out("outSystem", "Running smoke tests...");
   const resumeText = val("resumeText") || "Node.js Express MongoDB";
@@ -395,6 +480,18 @@ async function runSmoke() {
   checks.push({ endpoint: "GET /", ...(await api("/", "GET")) });
   checks.push({ endpoint: "GET /api/v1/health", ...(await api("/api/v1/health", "GET")) });
   checks.push({ endpoint: "POST /api/groq/generate", ...(await api("/api/groq/generate", "POST", { prompt: "Smoke test prompt" })) });
+  checks.push({ endpoint: "POST /api/interviewforge/generate", ...(await api("/api/interviewforge/generate", "POST", {
+    resumeText,
+    skills: csvList("ifSkills"),
+    experienceSummary: val("ifExperienceSummary"),
+    targetRole: val("ifTargetRole"),
+    targetCompanies: csvList("ifTargetCompanies"),
+    interviewType: val("ifInterviewType") || "technical",
+    difficulty: val("ifDifficulty") || "medium",
+    maxQuestions: Number(val("ifMaxQuestions") || "12"),
+    premium: false,
+  })) });
+  checks.push({ endpoint: "POST /api/interviewforge/parse", ...(await api("/api/interviewforge/parse", "POST", { text: resumeText })) });
   checks.push({ endpoint: "POST /api/gemini/ats-analyze", ...(await api("/api/gemini/ats-analyze", "POST", { jobDescription: jobText, resumeText })) });
   checks.push({ endpoint: "POST /api/v1/resume/match", ...(await api("/api/v1/resume/match", "POST", { resumeText, jobText })) });
   checks.push({ endpoint: "POST /api/v1/resume/ats", ...(await api("/api/v1/resume/ats", "POST", { resumeText, jobText })) });
@@ -429,6 +526,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btnClaudeSummary")?.addEventListener("click", () => {
     api("/api/groq/summary-from-jd", "POST", { jobDescription: val("jobDescription") || "Backend Node.js role with MongoDB and APIs." }, "outClaudeSummary", "btnClaudeSummary");
+  });
+
+  document.getElementById("btnIfGenerate")?.addEventListener("click", () => {
+    api("/api/interviewforge/generate", "POST", {
+      resumeText: val("ifResumeText"),
+      skills: csvList("ifSkills"),
+      experienceSummary: val("ifExperienceSummary"),
+      targetRole: val("ifTargetRole"),
+      targetCompanies: csvList("ifTargetCompanies"),
+      interviewType: val("ifInterviewType") || "technical",
+      difficulty: val("ifDifficulty") || "medium",
+      maxQuestions: Number(val("ifMaxQuestions") || "12"),
+      premium: false,
+    }, "outIfGenerate", "btnIfGenerate");
+  });
+
+  document.getElementById("btnIfGenerateAsync")?.addEventListener("click", () => {
+    api("/api/interviewforge/generate-async", "POST", {
+      resumeText: val("ifResumeText"),
+      skills: csvList("ifSkills"),
+      experienceSummary: val("ifExperienceSummary"),
+      targetRole: val("ifTargetRole"),
+      targetCompanies: csvList("ifTargetCompanies"),
+      interviewType: val("ifInterviewType") || "technical",
+      difficulty: val("ifDifficulty") || "medium",
+      maxQuestions: Number(val("ifMaxQuestions") || "12"),
+      premium: false,
+    }, "outIfGenerate", "btnIfGenerateAsync");
+  });
+
+  document.getElementById("btnIfUpload")?.addEventListener("click", async () => {
+    const file = document.getElementById("ifUploadFile")?.files?.[0];
+    if (!file) {
+      out("outIfUpload", { status: 0, success: false, error: "Please choose a file first" });
+      setStatus("Choose a file before uploading to InterviewForge.");
+      return;
+    }
+
+    const form = new FormData();
+    form.append("file", file);
+    await api("/api/interviewforge/upload", "POST", form, "outIfUpload", "btnIfUpload", true);
+  });
+
+  document.getElementById("btnIfParse")?.addEventListener("click", () => {
+    api("/api/interviewforge/parse", "POST", { text: val("ifParseText") }, "outIfParse", "btnIfParse");
   });
 
   document.getElementById("btnGeminiAts")?.addEventListener("click", () => {

@@ -1,9 +1,10 @@
 const mongoose = require("mongoose");
 const { env } = require("./env");
+const { logger } = require("../utils/logger");
 
 async function connectDatabase() {
   if (!env.MONGODB_URI) {
-    console.warn("MONGODB_URI not set. Running without database connection.");
+    logger.warn("MONGODB_URI not set. Running without database connection.");
     return;
   }
 
@@ -11,9 +12,9 @@ async function connectDatabase() {
     await mongoose.connect(env.MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
     });
-    console.log("MongoDB connected");
+    logger.info("MongoDB connected");
   } catch (error) {
-    console.error("MongoDB connection failed:", error.message);
+    logger.error("MongoDB connection failed", error);
   }
 }
 

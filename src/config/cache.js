@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const { createClient } = require("redis");
 
 const { env } = require("./env");
+const { logger } = require("../utils/logger");
 
 let redisClient = null;
 let redisConnected = false;
@@ -64,27 +65,27 @@ function hashPayload(payload) {
 
 function attachRedisEvents(client) {
   client.on("connect", () => {
-    console.log("Redis connecting...");
+    logger.info("Redis connecting...");
   });
 
   client.on("ready", () => {
     redisConnected = true;
-    console.log("Redis cache connected");
+    logger.info("Redis cache connected");
   });
 
   client.on("reconnecting", () => {
     redisConnected = false;
-    console.warn("Redis reconnecting...");
+    logger.warn("Redis reconnecting...");
   });
 
   client.on("end", () => {
     redisConnected = false;
-    console.warn("Redis cache connection closed");
+    logger.warn("Redis cache connection closed");
   });
 
   client.on("error", (error) => {
     redisConnected = false;
-    console.error("Redis cache error:", error.message);
+    logger.error("Redis cache error", error);
   });
 }
 
@@ -101,9 +102,7 @@ async function getRedisClient() {
     if (!missingConfigWarningShown) {
       missingConfigWarningShown = true;
 
-      console.warn(
-        "CACHE_ENABLED is true but REDIS_URL is missing. Cache disabled."
-      );
+      logger.warn("CACHE_ENABLED is true but REDIS_URL is missing. Cache disabled.");
     }
 
     return null;
@@ -139,10 +138,7 @@ async function getRedisClient() {
       .catch((error) => {
         redisConnected = false;
 
-        console.error(
-          "Redis cache connect failed:",
-          error.message
-        );
+        logger.error("Redis cache connect failed", error);
 
         return null;
       })
@@ -187,18 +183,12 @@ async function getJson(key) {
     try {
       return JSON.parse(raw);
     } catch (parseError) {
-      console.error(
-        "Invalid cached JSON:",
-        parseError.message
-      );
+      logger.error("Invalid cached JSON", parseError);
 
       return null;
     }
   } catch (error) {
-    console.error(
-      "Cache getJson failed:",
-      error.message
-    );
+    logger.error("Cache getJson failed", error);
 
     return null;
   }
@@ -237,10 +227,7 @@ async function setJson(
 
     return true;
   } catch (error) {
-    console.error(
-      "Cache setJson failed:",
-      error.message
-    );
+    logger.error("Cache setJson failed", error);
 
     return false;
   }
@@ -301,10 +288,7 @@ async function deleteKey(key) {
   try {
     return await client.del(scopedKey(key));
   } catch (error) {
-    console.error(
-      "Cache deleteKey failed:",
-      error.message
-    );
+    logger.error("Cache deleteKey failed", error);
 
     return 0;
   }
@@ -342,10 +326,7 @@ async function deleteByPrefix(prefix) {
 
     return deleted;
   } catch (error) {
-    console.error(
-      "Cache deleteByPrefix failed:",
-      error.message
-    );
+    logger.error("Cache deleteByPrefix failed", error);
 
     return deleted;
   }
@@ -361,13 +342,10 @@ async function disconnectRedis() {
       await redisClient.quit();
       redisConnected = false;
 
-      console.log("Redis disconnected gracefully");
+      logger.info("Redis disconnected gracefully");
     }
   } catch (error) {
-    console.error(
-      "Redis disconnect failed:",
-      error.message
-    );
+    logger.error("Redis disconnect failed", error);
   }
 }
 

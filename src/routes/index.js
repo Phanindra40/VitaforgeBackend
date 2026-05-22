@@ -12,9 +12,10 @@ router.get("/health", (_req, res) => {
 });
 
 router.use("/resumes", resumeRoutes);
+// Backwards-compatible alias: some clients (test UI) use singular `/resume`
+router.use("/resume", resumeRoutes);
 router.use("/groq", aiRoutes);
 router.use("/claude", aiRoutes);
-router.use("/gemini", aiRoutes);
 router.use("/gemini", geminiRoutes);
 router.use("/contact", contactRoutes);
 router.use("/interviewforge", interviewForgeRoutes);

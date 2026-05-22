@@ -4,6 +4,7 @@ const path = require("path");
 const pdfParse = require("pdf-parse");
 
 const { env } = require("../config/env");
+const { logger } = require("../utils/logger");
 
 const { extractEntities } = require("./nlp.service");
 const { extractText } = require("./parser.service");
@@ -113,6 +114,16 @@ function buildLocalSummary(text) {
   return words.length > 40
     ? `${preview}...`
     : preview;
+}
+
+function buildSummaryPrompt(text) {
+  return [
+    "Write a concise summary of the following text.",
+    "Return valid JSON with a single key named summary.",
+    "Keep the summary clear, factual, and short.",
+    "Text:",
+    text,
+  ].join("\n");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -435,9 +446,7 @@ async function callGeminiForOcr(
     attempt++
   ) {
     try {
-      console.log(
-        `Calling Gemini OCR API (Attempt ${attempt})`
-      );
+      logger.info(`Calling Gemini OCR API (Attempt ${attempt})`);
 
       const response =
         await geminiClient.post(
@@ -506,10 +515,7 @@ async function callGeminiForOcr(
       const status =
         error.response?.status;
 
-      console.error(
-        `Gemini OCR attempt ${attempt} failed:`,
-        status || error.message
-      );
+      logger.warn(`Gemini OCR attempt ${attempt} failed`, { status: status || error.message });
 
       /**
        * Avoid retrying most 4xx errors
@@ -530,9 +536,7 @@ async function callGeminiForOcr(
             5000
           );
 
-        console.log(
-          `Retrying in ${delay}ms...`
-        );
+        logger.info(`Retrying in ${delay}ms...`);
 
         await sleep(delay);
       }
@@ -559,6 +563,89 @@ async function callGeminiForOcr(
     status === 404
       ? "GEMINI_MODEL_NOT_FOUND"
       : "GEMINI_OCR_UPSTREAM_FAILED";
+
+  throw wrapped;
+}
+
+async function callGeminiForSummary(text) {
+  ensureGeminiKey();
+
+  const promptText = normalizeText(text);
+
+  if (!promptText) {
+    const error = new Error("Text is required for summary generation");
+
+    error.status = 400;
+    error.code = "INVALID_INPUT";
+
+    throw error;
+  }
+
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      logger.info(`Calling Gemini summary API (Attempt ${attempt})`);
+
+      const response = await geminiClient.post(
+        `${GEMINI_BASE_URL}/${env.GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
+        {
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: buildSummaryPrompt(promptText) }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: MAX_OUTPUT_TOKENS,
+          },
+        }
+      );
+
+      const generatedText = normalizeText(
+        response.data?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("")
+      );
+
+      if (!generatedText) {
+        throw new Error("Empty Gemini summary response");
+      }
+
+      const parsed = extractJson(generatedText) || {};
+      const summary = normalizeText(parsed.summary || generatedText || buildLocalSummary(promptText));
+
+      return {
+        summary: summary || buildLocalSummary(promptText),
+      };
+    } catch (error) {
+      lastError = error;
+
+      const status = error.response?.status;
+
+      logger.warn(`Gemini summary attempt ${attempt} failed`, { status: status || error.message });
+
+      if (status && status >= 400 && status < 500 && status !== 429) {
+        break;
+      }
+
+      if (attempt < MAX_RETRIES) {
+        const delay = Math.min(attempt * 1000, 5000);
+
+        logger.info(`Retrying in ${delay}ms...`);
+
+        await sleep(delay);
+      }
+    }
+  }
+
+  const status = lastError?.response?.status || 502;
+  const message =
+    lastError?.response?.data?.error?.message || lastError?.message || "Gemini summary request failed";
+
+  const wrapped = new Error(`Gemini summary failed: ${message}`);
+
+  wrapped.status = status;
+  wrapped.code = status === 404 ? "GEMINI_MODEL_NOT_FOUND" : "GEMINI_SUMMARY_UPSTREAM_FAILED";
 
   throw wrapped;
 }
@@ -632,6 +719,27 @@ async function extractOcrText(
   };
 }
 
+async function summarizeText(text) {
+  const normalizedText = normalizeText(text);
+
+  if (!normalizedText) {
+    const error = new Error("text is required");
+
+    error.status = 400;
+    error.code = "INVALID_INPUT";
+
+    throw error;
+  }
+
+  if (env.GEMINI_API_KEY) {
+    return callGeminiForSummary(normalizedText);
+  }
+
+  return {
+    summary: buildLocalSummary(normalizedText),
+  };
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                  EXPORTS                                   */
 /* -------------------------------------------------------------------------- */
@@ -640,6 +748,8 @@ module.exports = {
   analyzeAts,
 
   extractOcrText,
+
+  summarizeText,
 
   callGeminiForOcr,
 };

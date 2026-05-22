@@ -1,9 +1,10 @@
 const {
   generateTextFromPrompt,
   generateSummaryFromJobDescription,
-} = require("../services/ai.service");
+} = require("../services/groq.service");
 
 const { env } = require("../config/env");
+const { logger } = require("../utils/logger");
 
 const {
   getOrSetJson,
@@ -157,19 +158,12 @@ async function generate(
         cacheKey,
 
         async () => {
-          console.log(
-            "Generating AI text:",
-            truncateLog(prompt)
-          );
+          logger.info("Generating AI text", { prompt: truncateLog(prompt) });
 
           const text =
             await generateTextFromPrompt(
               prompt
             );
-
-          console.log(
-            "AI generation completed"
-          );
 
           return {
             text,
@@ -188,19 +182,7 @@ async function generate(
         payload.cached ?? true,
     });
   } catch (error) {
-    console.error(
-      "AI generate error:",
-      {
-        message:
-          error.message,
-
-        code:
-          error.code,
-
-        status:
-          error.status,
-      }
-    );
+    logger.error("AI generate error", error);
 
     return sendError(
       res,
@@ -256,22 +238,14 @@ async function summaryFromJd(
         cacheKey,
 
         async () => {
-          console.log(
-            "Generating JD summary:",
-            {
-              length:
-                jobDescription.length,
-            }
-          );
+          logger.info("Generating JD summary", { length: jobDescription.length });
 
           const text =
             await generateSummaryFromJobDescription(
               jobDescription
             );
 
-          console.log(
-            "JD summary generated"
-          );
+          logger.info("JD summary generated");
 
           return {
             text,
@@ -290,19 +264,7 @@ async function summaryFromJd(
         payload.cached ?? true,
     });
   } catch (error) {
-    console.error(
-      "AI summaryFromJd error:",
-      {
-        message:
-          error.message,
-
-        code:
-          error.code,
-
-        status:
-          error.status,
-      }
-    );
+    logger.error("AI summaryFromJd error", error);
 
     return sendError(
       res,

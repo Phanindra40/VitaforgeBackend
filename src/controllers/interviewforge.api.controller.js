@@ -4,7 +4,7 @@ const path = require("path");
 const { env } = require("../config/env");
 const { extractText } = require("../services/parser.service");
 const { extractEntities } = require("../services/nlp.service");
-const { generateTextFromPrompt } = require("../services/ai.service");
+const { generateTextFromPrompt } = require("../services/groq.service");
 const { recommendJobsForResume } = require("../services/recommendation.service");
 const { saveParsedResume, getResumeById } = require("../repositories/resume.repository");
 
@@ -295,7 +295,11 @@ async function resolveGenerationInput(body = {}) {
   }
 
   if (!resolvedResumeText && !resolvedResumeId) {
-    throw badRequest("resumeText or resumeId is required");
+    throw badRequest("resumeText or resumeId is required", { 
+      receivedResumeText: !!body.resumeText,
+      receivedResumeId: !!body.resumeId,
+      bodyKeys: Object.keys(body)
+    });
   }
 
   const inferredSkills = skills.length ? skills : (extractEntities(resolvedResumeText || "").skills || []);

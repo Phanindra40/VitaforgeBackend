@@ -1,5 +1,6 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
+const { ipKeyGenerator } = require("express-rate-limit");
 
 const upload = require("../utils/upload");
 const controller = require("../controllers/interviewforge.api.controller");
@@ -7,7 +8,10 @@ const { optionalBearerAuth, requireBearerAuth } = require("../middlewares/bearer
 
 const router = express.Router();
 
-const keyGenerator = (req) => req.auth?.userId || req.ip;
+const keyGenerator = (req) => {
+	if (req.auth?.userId) return req.auth.userId;
+	return ipKeyGenerator(req.ip);
+};
 
 const generateLimiter = rateLimit({
 	windowMs: 60 * 60 * 1000,

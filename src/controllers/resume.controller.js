@@ -5,7 +5,7 @@ const { extractEntities } = require("../services/nlp.service");
 const { matchResumeToJob: computeMatchScore } = require("../services/matching.service");
 const { calculateATSScore } = require("../services/ats.service");
 const { semanticMatchScore } = require("../services/embedding.service");
-const { improveResumeText } = require("../services/ai.service");
+const { improveResumeText } = require("../services/groq.service");
 const { recommendJobsForResume } = require("../services/recommendation.service");
 const mongoose = require("mongoose");
 const {

@@ -1,3 +1,5 @@
+const { logger } = require("../utils/logger");
+
 function notFoundHandler(req, res) {
   res.status(404).json({
     error: {
@@ -16,7 +18,7 @@ function errorHandler(error, _req, res, _next) {
     error.statusCode ||
     (error.name === "MulterError" ? 400 : 500);
 
-  console.error("Error:", error.message, error.stack);
+  logger.error("Request failed", error);
   res.status(status).json({
     error: {
       code: error.code || (status === 500 ? "INTERNAL_SERVER_ERROR" : "ERROR"),

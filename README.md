@@ -52,6 +52,7 @@ Login first, then access the API test page.
 - `POST /api/groq/generate`
 - `POST /api/groq/summary-from-jd`
 - `POST /api/gemini/ats-analyze` (`jobDescription`, `resumeText`)
+- `POST /api/gemini/ocr-summary` (`text`)
 - `POST /api/gemini/ocr-extract` (multipart `file`, optional `mode`, optional `language`)
 - `POST /api/contact`
 - `GET /api/resumes`

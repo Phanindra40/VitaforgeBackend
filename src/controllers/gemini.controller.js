@@ -2,7 +2,7 @@ const fs = require("fs/promises");
 
 const { env } = require("../config/env");
 const { getOrSetJson, hashPayload } = require("../config/cache");
-const { analyzeAts, extractOcrText } = require("../services/gemini.service");
+const { analyzeAts, extractOcrText, summarizeText } = require("../services/gemini.service");
 
 function sendInvalidInput(res, message) {
   return res.status(400).json({
@@ -16,6 +16,10 @@ function sendInvalidInput(res, message) {
 function sanitizeText(value) {
   if (typeof value !== "string") return "";
   return value.trim();
+}
+
+function getSummaryText(body) {
+  return sanitizeText(body?.text || body?.input || body?.content || "");
 }
 
 function getUploadedFile(req) {
@@ -71,6 +75,36 @@ async function atsAnalyze(req, res) {
   }
 }
 
+async function ocrSummary(req, res) {
+  const text = getSummaryText(req.body);
+
+  if (!text) {
+    return sendInvalidInput(res, "text is required");
+  }
+
+  if (text.length > 20000) {
+    return sendInvalidInput(res, "text must be at most 20000 characters");
+  }
+
+  try {
+    const cacheKey = `ai:gemini:ocr-summary:${hashPayload({ text })}`;
+    const result = await getOrSetJson(
+      cacheKey,
+      async () => summarizeText(text),
+      env.CACHE_AI_TTL_SECONDS
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      error: {
+        code: error.code || "SUMMARY_GENERATION_FAILED",
+        message: error.message || "Failed to summarize text",
+      },
+    });
+  }
+}
+
 async function ocrExtract(req, res) {
   const mode = sanitizeText(req.body?.mode) || "ocr";
   const language = sanitizeText(req.body?.language) || "en";
@@ -104,4 +138,5 @@ async function ocrExtract(req, res) {
 module.exports = {
   atsAnalyze,
   ocrExtract,
+  ocrSummary,
 };

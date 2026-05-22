@@ -1,3 +1,5 @@
+const { logger } = require("../utils/logger");
+
 function invalidInput(res, message) {
   return res.status(400).json({
     error: {
@@ -34,7 +36,7 @@ async function submitContact(req, res) {
     return invalidInput(res, "message is required and must be 1..5000 characters");
   }
 
-  console.log("[contact] message received", {
+  logger.info("[contact] message received", {
     name,
     email,
     source: source || "VitaForge Contact Form",

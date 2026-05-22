@@ -7,6 +7,7 @@ const path = require("path");
 const { env } = require("./config/env");
 const { connectDatabase } = require("./config/database");
 const { warmupCacheConnection, isCacheConfigured } = require("./config/cache");
+const { logger } = require("./utils/logger");
 const apiRoutes = require("./routes");
 const { notFoundHandler, errorHandler } = require("./middlewares/error.middleware");
 
@@ -224,8 +225,8 @@ async function startServer() {
     Boolean(String(env.TEST_UI_LOGIN_PASSWORD || ""));
 
   app.listen(env.PORT, () => {
-    console.log(`Server listening on port ${env.PORT}`);
-    console.log(`Test UI login configured: ${loginConfigured ? "YES" : "NO"}`);
+    logger.info(`Server listening on port ${env.PORT}`);
+    logger.info("Test UI login configured", { enabled: loginConfigured });
   });
 }
 
