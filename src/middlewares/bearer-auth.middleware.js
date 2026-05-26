@@ -105,8 +105,13 @@ function buildAuthFromToken(token) {
     };
   }
 
-  attachDevelopmentAuth(req);
-  return req.auth;
+  return {
+    userId: "development",
+    sub: "development",
+    scopes: [],
+    premium: false,
+    tokenType: "development",
+  };
 }
 
 function optionalBearerAuth(req, _res, next) {

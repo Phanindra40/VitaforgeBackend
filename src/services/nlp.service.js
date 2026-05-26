@@ -131,7 +131,7 @@ function extractSkills(text) {
         );
 
       const regex = new RegExp(
-        `\\b${escaped}\\b`,
+        `(?<=^|[^a-zA-Z0-9+#])${escaped}(?=$|[^a-zA-Z0-9+#])`,
         "i"
       );
 

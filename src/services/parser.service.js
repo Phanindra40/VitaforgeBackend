@@ -1,4 +1,4 @@
-const fs = require("fs");
+const fs = require("fs").promises;
 const path = require("path");
 const _pdf = require("pdf-parse");
 const pdf = typeof _pdf === "function" ? _pdf : (_pdf && _pdf.default) ? _pdf.default : null;
@@ -9,7 +9,7 @@ async function extractText(filePath, originalName = "") {
 
   if (extension === ".pdf") {
     if (!pdf) throw new Error("pdf-parse module is not available");
-    const buffer = fs.readFileSync(filePath);
+    const buffer = await fs.readFile(filePath);
     const data = await pdf(buffer);
     return data?.text || "";
   }
@@ -20,7 +20,7 @@ async function extractText(filePath, originalName = "") {
   }
 
   if (extension === ".txt") {
-    return fs.readFileSync(filePath, "utf8");
+    return await fs.readFile(filePath, "utf8");
   }
 
   if (extension === ".doc") {

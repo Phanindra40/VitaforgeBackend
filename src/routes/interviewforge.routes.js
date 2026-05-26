@@ -1,58 +1,192 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
-const { ipKeyGenerator } = require("express-rate-limit");
 
 const upload = require("../utils/upload");
 const controller = require("../controllers/interviewforge.api.controller");
-const { optionalBearerAuth, requireBearerAuth } = require("../middlewares/bearer-auth.middleware");
+
+const {
+  optionalBearerAuth,
+  requireBearerAuth,
+} = require("../middlewares/bearer-auth.middleware");
 
 const router = express.Router();
 
-const keyGenerator = (req) => {
-	if (req.auth?.userId) return req.auth.userId;
-	return ipKeyGenerator(req.ip);
-};
+/* -------------------------------------------------------------------------- */
+/*                               Rate Limit Utils                             */
+/* -------------------------------------------------------------------------- */
 
-const generateLimiter = rateLimit({
-	windowMs: 60 * 60 * 1000,
-	limit: (req) => (req.auth?.scopes?.includes("premium") ? 100 : 5),
-	standardHeaders: true,
-	legacyHeaders: false,
-	keyGenerator,
+const createRateLimiter = ({ windowMs, limit }) =>
+  rateLimit({
+    windowMs,
+    limit,
+    standardHeaders: true,
+    legacyHeaders: false,
+    validate: { keyGeneratorIpFallback: false },
+
+    keyGenerator: (req) => {
+      // Prefer authenticated user ID
+      if (req.auth?.userId) {
+        return `user:${req.auth.userId}`;
+      }
+
+      // Fallback to IP
+      return `ip:${req.ip}`;
+    },
+
+    handler: (_req, res) => {
+      return res.status(429).json({
+        success: false,
+        message: "Too many requests. Please try again later.",
+      });
+    },
+  });
+
+/* -------------------------------------------------------------------------- */
+/*                               Rate Limiters                                */
+/* -------------------------------------------------------------------------- */
+
+const generateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  limit: (req) =>
+    req.auth?.scopes?.includes("premium") ? 100 : 5,
 });
 
-const chatLimiter = rateLimit({
-	windowMs: 60 * 1000,
-	limit: 60,
-	standardHeaders: true,
-	legacyHeaders: false,
-	keyGenerator,
+const chatLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  limit: 60,
 });
 
-const evaluateLimiter = rateLimit({
-	windowMs: 60 * 1000,
-	limit: 60,
-	standardHeaders: true,
-	legacyHeaders: false,
-	keyGenerator,
+const evaluateLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  limit: 60,
 });
 
-router.post("/upload", optionalBearerAuth, upload.single("file"), controller.uploadResume);
-router.post("/parse", optionalBearerAuth, controller.parseResume);
-router.post("/generate", optionalBearerAuth, generateLimiter, controller.generateQuestions);
-router.post("/generate-async", optionalBearerAuth, generateLimiter, controller.generateQuestionsAsync);
-router.get("/jobs/:jobId", requireBearerAuth, controller.getJobStatus);
-router.get("/questions/:sessionId", requireBearerAuth, controller.getQuestions);
-router.post("/mock/start", requireBearerAuth, controller.startMock);
-router.post("/mock/:mockId/answer", requireBearerAuth, controller.answerMock);
-router.post("/evaluate", requireBearerAuth, evaluateLimiter, controller.evaluateSingle);
-router.post("/chat", requireBearerAuth, chatLimiter, controller.chat);
-router.get("/preferences", requireBearerAuth, controller.getPreferences);
-router.post("/preferences", requireBearerAuth, controller.savePreferences);
-router.get("/insights", optionalBearerAuth, controller.insights);
-router.post("/insights", optionalBearerAuth, controller.insights);
-router.post("/questions/:sessionId/bookmark", requireBearerAuth, controller.bookmarkQuestion);
-router.get("/sessions", requireBearerAuth, controller.listSessions);
-router.delete("/session/:sessionId", requireBearerAuth, controller.deleteSession);
+/* -------------------------------------------------------------------------- */
+/*                                   Routes                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Resume
+ */
+router.post(
+  "/upload",
+  optionalBearerAuth,
+  upload.single("file"),
+  controller.uploadResume
+);
+
+router.post(
+  "/parse",
+  optionalBearerAuth,
+  controller.parseResume
+);
+
+/**
+ * Question Generation
+ */
+router.post(
+  "/generate",
+  optionalBearerAuth,
+  generateLimiter,
+  controller.generateQuestions
+);
+
+router.post(
+  "/generate-async",
+  optionalBearerAuth,
+  generateLimiter,
+  controller.generateQuestionsAsync
+);
+
+router.get(
+  "/jobs/:jobId",
+  requireBearerAuth,
+  controller.getJobStatus
+);
+
+router.get(
+  "/questions/:sessionId",
+  requireBearerAuth,
+  controller.getQuestions
+);
+
+/**
+ * Mock Interviews
+ */
+router.post(
+  "/mock/start",
+  requireBearerAuth,
+  controller.startMock
+);
+
+router.post(
+  "/mock/:mockId/answer",
+  requireBearerAuth,
+  controller.answerMock
+);
+
+/**
+ * Evaluation & AI Chat
+ */
+router.post(
+  "/evaluate",
+  requireBearerAuth,
+  evaluateLimiter,
+  controller.evaluateSingle
+);
+
+router.post(
+  "/chat",
+  requireBearerAuth,
+  chatLimiter,
+  controller.chat
+);
+
+/**
+ * User Preferences
+ */
+router.get(
+  "/preferences",
+  requireBearerAuth,
+  controller.getPreferences
+);
+
+router.post(
+  "/preferences",
+  requireBearerAuth,
+  controller.savePreferences
+);
+
+/**
+ * Insights
+ */
+router
+  .route("/insights")
+  .get(optionalBearerAuth, controller.insights)
+  .post(optionalBearerAuth, controller.insights);
+
+/**
+ * Bookmarks
+ */
+router.post(
+  "/questions/:sessionId/bookmark",
+  requireBearerAuth,
+  controller.bookmarkQuestion
+);
+
+/**
+ * Sessions
+ */
+router.get(
+  "/sessions",
+  requireBearerAuth,
+  controller.listSessions
+);
+
+router.delete(
+  "/session/:sessionId",
+  requireBearerAuth,
+  controller.deleteSession
+);
 
 module.exports = router;

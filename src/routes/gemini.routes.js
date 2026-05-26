@@ -5,27 +5,60 @@ const controller = require("../controllers/gemini.controller");
 
 const router = express.Router();
 
-function sendMethodNotAllowed(res) {
-	return res.status(405).json({
-		error: {
-			code: "METHOD_NOT_ALLOWED",
-			message: "Use POST with multipart/form-data and a file field named file, document, or resume.",
-		},
-	});
-}
+/* -------------------------------------------------------------------------- */
+/*                               Helpers                                      */
+/* -------------------------------------------------------------------------- */
 
-router.post("/ats-analyze", controller.atsAnalyze);
-router.post("/ocr-summary", controller.ocrSummary);
+const sendMethodNotAllowed = (res) => {
+  return res.status(405).json({
+    success: false,
+    error: {
+      code: "METHOD_NOT_ALLOWED",
+      message:
+        "Use POST with multipart/form-data and a file field named file, document, or resume.",
+    },
+  });
+};
+
+/* -------------------------------------------------------------------------- */
+/*                               Upload Config                                */
+/* -------------------------------------------------------------------------- */
+
+const resumeUploadMiddleware = upload.fields([
+  { name: "file", maxCount: 1 },
+  { name: "document", maxCount: 1 },
+  { name: "resume", maxCount: 1 },
+]);
+
+/* -------------------------------------------------------------------------- */
+/*                                   Routes                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * ATS Resume Analysis
+ */
 router.post(
-	"/ocr-extract",
-	upload.fields([
-		{ name: "file", maxCount: 1 },
-		{ name: "document", maxCount: 1 },
-		{ name: "resume", maxCount: 1 },
-	]),
-	controller.ocrExtract
+  "/ats-analyze",
+  controller.atsAnalyze
 );
 
-router.all("/ocr-extract", (_req, res) => sendMethodNotAllowed(res));
+/**
+ * OCR Resume Summary
+ */
+router.post(
+  "/ocr-summary",
+  controller.ocrSummary
+);
+
+/**
+ * OCR Resume Extraction
+ */
+router
+  .route("/ocr-extract")
+  .post(
+    resumeUploadMiddleware,
+    controller.ocrExtract
+  )
+  .all((_req, res) => sendMethodNotAllowed(res));
 
 module.exports = router;

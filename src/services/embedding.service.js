@@ -41,7 +41,13 @@ async function getEmbedding(text) {
     throw new Error("Unexpected embedding response format");
   }
 
-  return response.data;
+  const result = Array.isArray(response.data[0]) ? response.data[0] : response.data;
+
+  if (!result.length || typeof result[0] !== "number") {
+    throw new Error("Invalid embedding elements in response");
+  }
+
+  return result;
 }
 
 async function semanticMatchScore(resumeText, jobText) {
