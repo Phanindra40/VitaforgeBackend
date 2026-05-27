@@ -5,6 +5,7 @@ const { env } = require("../config/env");
 const { extractText } = require("../services/parser.service");
 const { extractEntities } = require("../services/nlp.service");
 const { generateTextFromPrompt } = require("../services/groq.service");
+const { generateInterviewQuestions } = require("../services/gemini.service");
 const { recommendJobsForResume } = require("../services/recommendation.service");
 const { saveParsedResume, getResumeById } = require("../repositories/resume.repository");
 
@@ -348,13 +349,31 @@ async function buildGenerationResult(req, body = {}) {
     requirePremiumScope(req);
   }
 
+  const generated = await generateInterviewQuestions({
+    resumeText: input.resumeText,
+    skills: input.skills,
+    targetRole: input.targetRole,
+    targetCompanies: input.targetCompanies,
+    interviewType: input.preferences.interviewType,
+    difficulty: input.preferences.difficulty,
+    maxQuestions: input.preferences.maxQuestions,
+  });
+
+  const questions = (generated.questions || []).map((question, index) => ({
+    id: question.id || `q${index + 1}`,
+    question: question.question || question.q || "",
+    difficulty: question.difficulty || input.preferences.difficulty,
+    tags: Array.isArray(question.tags) ? question.tags : [],
+    assesses: Array.isArray(question.assesses) ? question.assesses : [],
+    sampleAnswer: question.sampleAnswer || "",
+  }));
+
   const profile = {
     resumeText: input.resumeText,
     skills: input.skills,
     experienceSummary: input.experienceSummary,
   };
 
-  const questions = buildQuestions(profile, input.preferences);
   const session = saveQuestionSession({
     ownerId: getAuthIdentity(req),
     resumeId: input.resumeId,

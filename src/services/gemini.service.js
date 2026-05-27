@@ -126,6 +126,36 @@ function buildSummaryPrompt(text) {
   ].join("\n");
 }
 
+function buildInterviewQuestionsPrompt({
+  resumeText,
+  skills = [],
+  targetRole = "",
+  targetCompanies = [],
+  interviewType = "technical",
+  difficulty = "medium",
+  maxQuestions = 10,
+}) {
+  return [
+    "You are an expert interview coach.",
+    `Generate exactly ${maxQuestions} unique interview questions for the target role ${targetRole ? `(${targetRole})` : ""}.`,
+    `Match the interview type: ${interviewType}.`,
+    `Use the difficulty level: ${difficulty}.`,
+    "Return ONLY valid JSON in this exact shape:",
+    '{"questions":[{"q":"...","difficulty":"...","tags":["..."],"assesses":["..."],"sampleAnswer":"..."}]}',
+    "Rules:",
+    "- Write the actual question text only.",
+    "- Do not prefix questions with labels like behavioral question for...",
+    "- Do not include explanations, markdown, code fences, or extra commentary.",
+    "- Keep each question specific and interview-ready.",
+    "Resume:",
+    resumeText || "",
+    "Skills:",
+    skills.length ? skills.join(", ") : "",
+    "Target companies:",
+    targetCompanies.length ? targetCompanies.join(", ") : "",
+  ].join("\n");
+}
+
 /* -------------------------------------------------------------------------- */
 /*                            JSON EXTRACTION                                 */
 /* -------------------------------------------------------------------------- */
@@ -740,6 +770,117 @@ async function summarizeText(text) {
   };
 }
 
+function normalizeInterviewQuestionText(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value
+    .replace(/^(behavioral|technical|hr) question for[^:]*:\s*/i, "")
+    .replace(/^question:\s*/i, "")
+    .trim();
+}
+
+function normalizeInterviewQuestion(item) {
+  if (typeof item === "string") {
+    return { q: normalizeInterviewQuestionText(item) };
+  }
+
+  if (!item || typeof item !== "object") {
+    return { q: "" };
+  }
+
+  return {
+    ...item,
+    q: normalizeInterviewQuestionText(item.q || item.question || item.text || item.prompt || ""),
+  };
+}
+
+async function generateInterviewQuestions(options = {}) {
+  ensureGeminiKey();
+
+  const maxQuestions = Number.isFinite(Number(options.maxQuestions))
+    ? Math.max(1, Math.min(20, Math.round(Number(options.maxQuestions))))
+    : 10;
+
+  const promptText = buildInterviewQuestionsPrompt({
+    resumeText: normalizeText(options.resumeText),
+    skills: Array.isArray(options.skills) ? options.skills.map((item) => normalizeText(String(item))).filter(Boolean) : [],
+    targetRole: normalizeText(options.targetRole),
+    targetCompanies: Array.isArray(options.targetCompanies) ? options.targetCompanies.map((item) => normalizeText(String(item))).filter(Boolean) : [],
+    interviewType: normalizeText(options.interviewType) || "technical",
+    difficulty: normalizeText(options.difficulty) || "medium",
+    maxQuestions,
+  });
+
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      logger.info(`Calling Gemini interview generation API (Attempt ${attempt})`);
+
+      const response = await geminiClient.post(
+        `${GEMINI_BASE_URL}/${env.GEMINI_MODEL}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`,
+        {
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: promptText }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: MAX_OUTPUT_TOKENS,
+          },
+        }
+      );
+
+      const generatedText = normalizeText(
+        response.data?.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("")
+      );
+
+      if (!generatedText) {
+        throw new Error("Empty Gemini interview generation response");
+      }
+
+      const parsed = extractJson(generatedText) || {};
+      const questions = Array.isArray(parsed.questions)
+        ? parsed.questions.map(normalizeInterviewQuestion).filter((question) => question.q).slice(0, maxQuestions)
+        : [];
+
+      return {
+        modelOutput: generatedText,
+        parsed: Array.isArray(parsed.questions) ? { ...parsed, questions } : null,
+        questions,
+      };
+    } catch (error) {
+      lastError = error;
+
+      const status = error.response?.status;
+      logger.warn(`Gemini interview generation attempt ${attempt} failed`, { status: status || error.message });
+
+      if (status && status >= 400 && status < 500 && status !== 429) {
+        break;
+      }
+
+      if (attempt < MAX_RETRIES) {
+        const delay = Math.min(attempt * 1000, 5000);
+        logger.info(`Retrying in ${delay}ms...`);
+        await sleep(delay);
+      }
+    }
+  }
+
+  const status = lastError?.response?.status || 502;
+  const message = lastError?.response?.data?.error?.message || lastError?.message || "Gemini interview generation failed";
+
+  const wrapped = new Error(`Gemini interview generation failed: ${message}`);
+  wrapped.status = status;
+  wrapped.code = status === 404 ? "GEMINI_MODEL_NOT_FOUND" : "GEMINI_INTERVIEW_UPSTREAM_FAILED";
+
+  throw wrapped;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                  EXPORTS                                   */
 /* -------------------------------------------------------------------------- */
@@ -750,6 +891,8 @@ module.exports = {
   extractOcrText,
 
   summarizeText,
+
+  generateInterviewQuestions,
 
   callGeminiForOcr,
 };
