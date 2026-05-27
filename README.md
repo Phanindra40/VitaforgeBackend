@@ -51,9 +51,9 @@ Login first, then access the API test page.
 - `GET /api/health` (also `/api/v1/health`)
 - `POST /api/groq/generate`
 - `POST /api/groq/summary-from-jd`
-- `POST /api/gemini/ats-analyze` (`jobDescription`, `resumeText`)
+- `POST /api/gemini/ats-analyze` (`jobDescription`, `resumeText`, optional `analysisContext`, `responseFormat`, `requestType`; returns `{ analysis: ... }`)
 - `POST /api/gemini/ocr-summary` (`text`)
-- `POST /api/gemini/ocr-extract` (multipart `file`, optional `mode`, optional `language`)
+- `POST /api/gemini/ocr-extract` (multipart `file`, optional `fileName`, optional `mimeType`, optional `mode`, optional `language`; returns `{ text }`)
 - `POST /api/contact`
 - `GET /api/resumes`
 - `GET /api/resumes/:id`
