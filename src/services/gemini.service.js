@@ -1,7 +1,7 @@
 const axios = require("axios");
 const fs = require("fs/promises");
 const path = require("path");
-const pdfParse = require("pdf-parse");
+const { PDFParse } = require("pdf-parse");
 
 const { env } = require("../config/env");
 const { logger } = require("../utils/logger");
@@ -267,10 +267,11 @@ async function estimatePageCount(file) {
       file.path
     );
 
-    const parsed =
-      await pdfParse(buffer);
+    const uint8 = new Uint8Array(buffer);
+    const parser = new PDFParse(uint8);
+    const parsed = await parser.getText();
 
-    return parsed.numpages || 1;
+    return parsed.total || 1;
   } catch {
     return 1;
   }

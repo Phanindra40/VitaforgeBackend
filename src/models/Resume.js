@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const resumeSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
+    userId: { type: String, required: false },
     sourceFileName: { type: String, required: false },
     rawText: { type: String, required: false },
     parsedData: { type: Object, required: false },

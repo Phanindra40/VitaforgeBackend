@@ -510,6 +510,7 @@ async function uploadResume(req, res, next) {
     return res.status(200).json({
       resumeId,
       textSnippet: rawText.slice(0, 200),
+      text: rawText,
       storageUrl,
       meta: {
         filename: req.file.originalname,
