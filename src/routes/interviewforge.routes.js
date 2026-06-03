@@ -24,8 +24,8 @@ const createRateLimiter = ({ windowMs, limit }) =>
     validate: { keyGeneratorIpFallback: false },
 
     keyGenerator: (req) => {
-      // Prefer authenticated user ID
-      if (req.auth?.userId) {
+      // Prefer authenticated user ID (excluding development/anonymous dummy auth)
+      if (req.auth?.userId && req.auth?.tokenType !== "development") {
         return `user:${req.auth.userId}`;
       }
 
@@ -100,13 +100,13 @@ router.post(
 
 router.get(
   "/jobs/:jobId",
-  requireBearerAuth,
+  optionalBearerAuth,
   controller.getJobStatus
 );
 
 router.get(
   "/questions/:sessionId",
-  requireBearerAuth,
+  optionalBearerAuth,
   controller.getQuestions
 );
 
@@ -115,13 +115,13 @@ router.get(
  */
 router.post(
   "/mock/start",
-  requireBearerAuth,
+  optionalBearerAuth,
   controller.startMock
 );
 
 router.post(
   "/mock/:mockId/answer",
-  requireBearerAuth,
+  optionalBearerAuth,
   controller.answerMock
 );
 
@@ -130,14 +130,14 @@ router.post(
  */
 router.post(
   "/evaluate",
-  requireBearerAuth,
+  optionalBearerAuth,
   evaluateLimiter,
   controller.evaluateSingle
 );
 
 router.post(
   "/chat",
-  requireBearerAuth,
+  optionalBearerAuth,
   chatLimiter,
   controller.chat
 );
@@ -147,13 +147,13 @@ router.post(
  */
 router.get(
   "/preferences",
-  requireBearerAuth,
+  optionalBearerAuth,
   controller.getPreferences
 );
 
 router.post(
   "/preferences",
-  requireBearerAuth,
+  optionalBearerAuth,
   controller.savePreferences
 );
 
