@@ -59,6 +59,10 @@ const env = {
     process.env.LOGIN_PASSWORD ||
     "",
   IS_RENDER: Boolean(process.env.RENDER || process.env.RENDER_EXTERNAL_URL),
+  PORTFOLIO_DATABASE_URL:
+    process.env.PORTFOLIO_DATABASE_URL ||
+    process.env.DATABASE_URL ||
+    "postgresql://neondb_owner:npg_Px7KadHrh9pE@ep-blue-dust-aqq4q7ny-pooler.c-8.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
 };
 
 module.exports = { env };

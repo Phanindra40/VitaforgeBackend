@@ -4,6 +4,7 @@ const aiRoutes = require("./groq.routes");
 const geminiRoutes = require("./gemini.routes");
 const contactRoutes = require("./contact.routes");
 const interviewForgeRoutes = require("./interviewforge.routes");
+const portfolioRoutes = require("./portfolio.routes");
 
 const router = express.Router();
 
@@ -19,5 +20,7 @@ router.use("/claude", aiRoutes);
 router.use("/gemini", geminiRoutes);
 router.use("/contact", contactRoutes);
 router.use("/interviewforge", interviewForgeRoutes);
+router.use("/portfolios", portfolioRoutes);
+router.use("/portfolio", portfolioRoutes);
 
 module.exports = router;

@@ -6,6 +6,7 @@ const path = require("path");
 
 const { env } = require("./config/env");
 const { connectDatabase } = require("./config/database");
+const { initPostgres } = require("./config/database.postgres");
 const { warmupCacheConnection, isCacheConfigured } = require("./config/cache");
 const { logger } = require("./utils/logger");
 const apiRoutes = require("./routes");
@@ -215,6 +216,7 @@ app.use(errorHandler);
 
 async function startServer() {
   await connectDatabase();
+  await initPostgres();
 
   if (isCacheConfigured()) {
     await warmupCacheConnection();
