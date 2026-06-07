@@ -63,6 +63,7 @@ function isAllowedCorsOrigin(origin) {
       hostname === "vitaforge.co.in" ||
       hostname === "www.vitaforge.co.in" ||
       hostname.endsWith(".netlify.app") ||
+      hostname.endsWith(".vercel.app") ||
       hostname.endsWith(".bonto.run")
     );
   } catch (_error) {
