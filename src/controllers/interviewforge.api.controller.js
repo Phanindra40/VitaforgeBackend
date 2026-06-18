@@ -5,7 +5,7 @@ const { env } = require("../config/env");
 const { extractText } = require("../services/parser.service");
 const { extractEntities } = require("../services/nlp.service");
 const { generateTextFromPrompt } = require("../services/groq.service");
-const { generateInterviewQuestions } = require("../services/gemini.service");
+const { generateInterviewQuestions, evaluateInterviewAnswer, generateInterviewCoachChat } = require("../services/gemini.service");
 const { recommendJobsForResume } = require("../services/recommendation.service");
 const { saveParsedResume, getResumeById } = require("../repositories/resume.repository");
 
@@ -443,7 +443,23 @@ async function runAsyncJob(jobId) {
   }
 }
 
-function makeEvaluation(questionText, answerText, resumeText) {
+async function makeEvaluation(questionText, answerText, resumeText, interviewType = "") {
+  try {
+    const aiEvaluation = await evaluateInterviewAnswer({
+      questionText,
+      answerText,
+      resumeText,
+      interviewType,
+    });
+
+    if (aiEvaluation) {
+      return aiEvaluation;
+    }
+  } catch (error) {
+    console.error("AI evaluation failed, falling back to heuristics:", error);
+  }
+
+  // Fallback to legacy rule-based heuristic evaluator
   const scored = scoreAnswer(answerText, questionText, resumeText);
   return {
     score: scored.score,
@@ -706,7 +722,12 @@ async function answerMock(req, res, next) {
       throw badRequest("questionId does not match the current question");
     }
 
-    const evaluation = makeEvaluation(currentQuestion.question, answerText, sourceTextForMock(mock));
+    const evaluation = await makeEvaluation(
+      currentQuestion.question,
+      answerText,
+      sourceTextForMock(mock),
+      mock.preferences?.interviewType || ""
+    );
 
     mock.answers.push({
       questionId: currentQuestion.id,
@@ -753,7 +774,12 @@ async function evaluateSingle(req, res, next) {
       throw badRequest("questionText, questionId, or resumeText is required");
     }
 
-    const evaluation = makeEvaluation(questionText || answerText, answerText, resumeText);
+    const evaluation = await makeEvaluation(
+      questionText || answerText,
+      answerText,
+      resumeText,
+      req.body?.interviewType || ""
+    );
 
     res.json({
       score: evaluation.score,
@@ -784,13 +810,28 @@ async function chat(req, res, next) {
       ? `Focus on one clear example, explain the outcome, and connect it to ${targetRole || "the target role"}.`
       : "Share a specific question or answer so I can help improve it.";
 
+    let usedAI = false;
+
     if (env.GROQ_API_KEY) {
       try {
         reply = await generateTextFromPrompt(
           `You are an interview coach. Respond in 3-5 concise sentences. Context: ${JSON.stringify(context)}. Conversation: ${JSON.stringify(messages)}`
         );
+        usedAI = true;
       } catch (_error) {
-        reply = reply;
+        // Fall back to Gemini
+      }
+    }
+
+    if (!usedAI && env.GEMINI_API_KEY) {
+      try {
+        const geminiReply = await generateInterviewCoachChat(messages, context);
+        if (geminiReply) {
+          reply = geminiReply;
+          usedAI = true;
+        }
+      } catch (geminiError) {
+        console.error("Gemini coach chat failed:", geminiError);
       }
     }
 
@@ -807,7 +848,7 @@ async function chat(req, res, next) {
     res.json({
       reply,
       conversationId,
-      usage: env.GROQ_API_KEY
+      usage: usedAI
         ? {
             tokens: Math.max(1, Math.ceil((userMessage.length + reply.length) / 4)),
           }

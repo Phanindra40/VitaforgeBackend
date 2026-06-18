@@ -170,7 +170,7 @@ function buildAtsResponse(jobDescription, resumeText, analysisContext, rawAnalys
         .filter(Boolean)
     : [];
 
-  const targetRole = sanitizeText(context.roleHint) || "the target role";
+  const targetRole = sanitizeText(context.roleHint) || rawAnalysis.targetRole || "the target role";
 
   const coverageValues = [
     normalizePercent(context.keywordCoverage),
@@ -200,7 +200,33 @@ function buildAtsResponse(jobDescription, resumeText, analysisContext, rawAnalys
     !missingSkills.length ? 2 : 0,
   ].reduce((sum, value) => sum + value, 0);
 
-  const confidence = clampNumber(Math.round(confidenceBase), 0, 100);
+  const confidence = clampNumber(
+    rawAnalysis.confidence !== null && rawAnalysis.confidence !== undefined
+      ? rawAnalysis.confidence
+      : Math.round(confidenceBase),
+    0,
+    100
+  );
+
+  if (rawAnalysis.isAi) {
+    return {
+      analysis: {
+        headline: rawAnalysis.headline || (score >= 75 ? `Good potential for ${targetRole}` : `Needs refinement for ${targetRole}`),
+        summary: rawAnalysis.summary || (score >= 75 ? `Resume aligns well with ${targetRole} requirements.` : `Resume requires optimization for ${targetRole}.`),
+        score: score,
+        confidence: confidence,
+        targetRole: targetRole,
+        strengths: rawAnalysis.strengths?.length ? rawAnalysis.strengths : ["Sufficient keyword presence"],
+        gaps: rawAnalysis.gaps?.length ? rawAnalysis.gaps : ["None detected"],
+        matchedKeywords: rawAnalysis.matchedKeywords,
+        missingKeywords: rawAnalysis.missingKeywords,
+        recommendations: rawAnalysis.recommendations?.length ? rawAnalysis.recommendations : ["Continue optimization"],
+        actionPlan: rawAnalysis.actionPlan?.length ? rawAnalysis.actionPlan : ["Refine key resume bullets"],
+        rewrittenSummary: rawAnalysis.rewrittenSummary,
+        rewriteBullets: rawAnalysis.rewriteBullets,
+      },
+    };
+  }
 
   const strengths = [];
 
@@ -398,7 +424,7 @@ async function atsAnalyze(req, res) {
     const analysis = await getOrSetJson(
       cacheKey,
       async () => {
-        const rawAnalysis = analyzeAts(jobDescription, resumeText);
+        const rawAnalysis = await analyzeAts(jobDescription, resumeText);
         return buildAtsResponse(jobDescription, resumeText, analysisContext, rawAnalysis);
       },
       env.CACHE_AI_TTL_SECONDS
