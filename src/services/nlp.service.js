@@ -60,7 +60,7 @@ function normalizeText(text) {
   return text
     .replace(/\r/g, "")
     .replace(/\t/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[^\S\r\n]+/g, " ")
     .trim();
 }
 

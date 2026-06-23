@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const Resume = require("../models/Resume");
 
+const memoryStore = new Map();
+
 function isDbReady() {
   return mongoose.connection.readyState === 1;
 }
@@ -11,15 +13,19 @@ function toPlainResume(doc) {
   return { ...doc };
 }
 
-function createDatabaseUnavailableError() {
-  const error = new Error("MongoDB is not connected. Resume data cannot be saved without a database.");
-  error.status = 503;
-  return error;
-}
-
 async function createResume(payload) {
   if (!isDbReady()) {
-    throw createDatabaseUnavailableError();
+    const id = new mongoose.Types.ObjectId().toString();
+    const now = new Date();
+    const doc = {
+      _id: id,
+      id: id,
+      ...payload,
+      createdAt: now,
+      updatedAt: now,
+    };
+    memoryStore.set(id, doc);
+    return doc;
   }
 
   const created = await Resume.create(payload);
@@ -28,7 +34,8 @@ async function createResume(payload) {
 
 async function listResumes() {
   if (!isDbReady()) {
-    throw createDatabaseUnavailableError();
+    return Array.from(memoryStore.values())
+      .sort((a, b) => b.createdAt - a.createdAt);
   }
 
   return Resume.find().sort({ createdAt: -1 }).lean();
@@ -38,7 +45,7 @@ async function getResumeById(id) {
   if (!id) return null;
 
   if (!isDbReady()) {
-    throw createDatabaseUnavailableError();
+    return memoryStore.get(id.toString()) || null;
   }
 
   return Resume.findById(id).lean();
@@ -48,7 +55,16 @@ async function updateResumeById(id, updates) {
   if (!id) return null;
 
   if (!isDbReady()) {
-    throw createDatabaseUnavailableError();
+    const key = id.toString();
+    const existing = memoryStore.get(key);
+    if (!existing) return null;
+    const updated = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    memoryStore.set(key, updated);
+    return updated;
   }
 
   const updated = await Resume.findByIdAndUpdate(id, updates, {
@@ -66,7 +82,11 @@ async function deleteResumeById(id) {
   if (!id) return null;
 
   if (!isDbReady()) {
-    throw createDatabaseUnavailableError();
+    const key = id.toString();
+    const existing = memoryStore.get(key);
+    if (!existing) return null;
+    memoryStore.delete(key);
+    return existing;
   }
 
   return Resume.findByIdAndDelete(id).lean();

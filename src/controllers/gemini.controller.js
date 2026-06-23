@@ -200,13 +200,15 @@ function buildAtsResponse(jobDescription, resumeText, analysisContext, rawAnalys
     !missingSkills.length ? 2 : 0,
   ].reduce((sum, value) => sum + value, 0);
 
-  const confidence = clampNumber(
-    rawAnalysis.confidence !== null && rawAnalysis.confidence !== undefined
-      ? rawAnalysis.confidence
-      : Math.round(confidenceBase),
-    0,
-    100
-  );
+  const confidence = rawAnalysis.isAi
+    ? clampNumber(
+        rawAnalysis.confidence !== null && rawAnalysis.confidence !== undefined
+          ? rawAnalysis.confidence
+          : Math.round(confidenceBase),
+        0,
+        100
+      )
+    : null;
 
   if (rawAnalysis.isAi) {
     return {
@@ -291,7 +293,36 @@ function buildAtsResponse(jobDescription, resumeText, analysisContext, rawAnalys
 
   const actionPlan = [];
 
-  if (Number.isFinite(Number(context.sectionCoverage)) && Number(context.sectionCoverage) < 0.75) {
+  const standardLabels = {
+    summary: "Summary",
+    experience: "Experience",
+    skills: "Skills",
+    education: "Education",
+    projects: "Projects",
+    certifications: "Certifications"
+  };
+
+  const signals = Array.isArray(context.sectionSignals) ? context.sectionSignals : [];
+
+  // Check for missing priority sections
+  const requiredPriorityKeys = ["experience", "skills", "education"];
+  requiredPriorityKeys.forEach((key) => {
+    const sec = signals.find((s) => s.key === key);
+    if (!sec || !sec.present) {
+      const label = standardLabels[key] || key;
+      actionPlan.push(`Create a dedicated standard '${label}' section to ensure ATS scanners can find your background`);
+    }
+  });
+
+  // Check for present sections with non-standard names
+  signals.forEach((sec) => {
+    if (sec.present && sec.isStandard === false && sec.matchedLine) {
+      const label = standardLabels[sec.key] || sec.key;
+      actionPlan.push(`Rename section '${sec.matchedLine}' to standard '${label}' heading to optimize parser readability`);
+    }
+  });
+
+  if (Number.isFinite(Number(context.sectionCoverage)) && Number(context.sectionCoverage) < 0.75 && actionPlan.length === 0) {
     actionPlan.push("Reorder and expand the resume sections so the core experience and skills are immediately visible");
   }
 

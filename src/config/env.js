@@ -26,6 +26,28 @@ function parseCorsOrigin(value) {
   return origins.length ? origins : "*";
 }
 
+const OPENROUTER_FREE_MODELS = [
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "deepseek/deepseek-r1:free",
+  "google/gemma-3-27b-it:free",
+  "openrouter/free"
+];
+
+function toFreeOpenRouterModel(value, fallback) {
+  if (!value) return fallback;
+  const trimmed = String(value).trim();
+  if (OPENROUTER_FREE_MODELS.includes(trimmed)) {
+    return trimmed;
+  }
+  if (trimmed === "openrouter/free" || trimmed.endsWith(":free")) {
+    return trimmed;
+  }
+  if (!trimmed.includes(":")) {
+    return `${trimmed}:free`;
+  }
+  return fallback;
+}
+
 const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
   PORT: toNumber(process.env.PORT, 5000),
@@ -46,6 +68,10 @@ const env = {
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || "",
   GEMINI_MODEL: process.env.GEMINI_MODEL || "gemini-2.5-flash",
   GEMINI_TIMEOUT_MS: toNumber(process.env.GEMINI_TIMEOUT_MS, 60000),
+  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
+  OPENROUTER_MODEL: toFreeOpenRouterModel(process.env.OPENROUTER_MODEL, "meta-llama/llama-3.3-70b-instruct:free"),
+  OPENROUTER_OCR_MODEL: toFreeOpenRouterModel(process.env.OPENROUTER_OCR_MODEL, "nvidia/nemotron-nano-12b-v2-vl:free"),
+  OPENROUTER_FREE_MODELS,
   INTERVIEWFORGE_API_TOKEN: process.env.INTERVIEWFORGE_API_TOKEN || "",
   INTERVIEWFORGE_JWT_SECRET: process.env.INTERVIEWFORGE_JWT_SECRET || "",
   TEST_UI_LOGIN_USERNAME:

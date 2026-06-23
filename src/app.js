@@ -227,9 +227,18 @@ async function startServer() {
     Boolean(String(env.TEST_UI_LOGIN_USERNAME || "").trim()) &&
     Boolean(String(env.TEST_UI_LOGIN_PASSWORD || ""));
 
-  app.listen(env.PORT, () => {
+  const server = app.listen(env.PORT, (err) => {
+    if (err) {
+      logger.error(`Server failed to start on port ${env.PORT}:`, err);
+      process.exit(1);
+    }
     logger.info(`Server listening on port ${env.PORT}`);
     logger.info("Test UI login configured", { enabled: loginConfigured });
+  });
+
+  server.on("error", (err) => {
+    logger.error(`Server error:`, err);
+    process.exit(1);
   });
 }
 

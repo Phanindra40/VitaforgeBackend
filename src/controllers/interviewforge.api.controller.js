@@ -109,7 +109,7 @@ function normalizePreferences(input = {}) {
 
 function buildSummary(parsed, resumeText) {
   const skills = parsed.skills || [];
-  const summary = sanitizeText(parsed.summary || parsed.experienceSummary || "");
+  const summary = sanitizeText(parsed.sections?.summary || parsed.sections?.experience || parsed.summary || parsed.experienceSummary || "");
 
   if (summary) return summary;
   if (skills.length) {
@@ -561,7 +561,7 @@ async function parseResume(req, res, next) {
       parseId,
       summary,
       skills: parsed.skills || [],
-      experienceSummary: parsed.experienceSummary || parsed.summary || "",
+      experienceSummary: parsed.sections?.experience || parsed.sections?.summary || parsed.experienceSummary || parsed.summary || "",
     });
   } catch (error) {
     next(error);
