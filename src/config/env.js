@@ -59,6 +59,8 @@ const env = {
   REDIS_URL: process.env.REDIS_URL || "",
   REDIS_PREFIX: process.env.REDIS_PREFIX || "vitaforge",
   REDIS_CONNECT_TIMEOUT_MS: toNumber(process.env.REDIS_CONNECT_TIMEOUT_MS, 5000),
+  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || "",
+  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || "",
   MONGODB_URI: process.env.MONGODB_URI || "",
   HF_API_KEY: process.env.HF_API_KEY || "",
   GROQ_API_KEY: process.env.GROQ_API_KEY || "",

@@ -18,6 +18,9 @@ const resumeSchema = new mongoose.Schema(
     projects: [{ type: Object }],
     education: [{ type: Object }],
     skills: [{ type: Object }],
+    certifications: [{ type: Object }],
+    customSections: [{ type: Object }],
+    sectionOrder: [{ type: String }],
     sectionTitles: { type: Object, required: false },
     
     // Legacy/other fields

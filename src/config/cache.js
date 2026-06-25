@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const { createClient } = require("redis");
+const axios = require("axios");
 
 const { env } = require("./env");
 const { logger } = require("../utils/logger");
@@ -20,8 +21,100 @@ const pendingLoads = new Map();
 /* -------------------------------------------------------------------------- */
 
 function isCacheConfigured() {
-  return env.CACHE_ENABLED && Boolean(env.REDIS_URL);
+  return (
+    env.CACHE_ENABLED &&
+    (Boolean(env.REDIS_URL) ||
+      (Boolean(env.UPSTASH_REDIS_REST_URL) &&
+        Boolean(env.UPSTASH_REDIS_REST_TOKEN)))
+  );
 }
+
+const upstashRestClient = {
+  async get(key) {
+    const response = await axios.post(
+      env.UPSTASH_REDIS_REST_URL,
+      ["GET", key],
+      {
+        headers: {
+          Authorization: `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        timeout: env.REDIS_CONNECT_TIMEOUT_MS,
+      }
+    );
+    return response.data.result;
+  },
+  async set(key, value, options = {}) {
+    const command = ["SET", key, value];
+    if (options.EX) {
+      command.push("EX", options.EX);
+    }
+    const response = await axios.post(
+      env.UPSTASH_REDIS_REST_URL,
+      command,
+      {
+        headers: {
+          Authorization: `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        timeout: env.REDIS_CONNECT_TIMEOUT_MS,
+      }
+    );
+    return response.data.result;
+  },
+  async del(...keys) {
+    if (!keys.length) return 0;
+    const response = await axios.post(
+      env.UPSTASH_REDIS_REST_URL,
+      ["DEL", ...keys],
+      {
+        headers: {
+          Authorization: `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        timeout: env.REDIS_CONNECT_TIMEOUT_MS,
+      }
+    );
+    return response.data.result || 0;
+  },
+  async scan(cursor, options = {}) {
+    const command = ["SCAN", cursor];
+    if (options.MATCH) {
+      command.push("MATCH", options.MATCH);
+    }
+    if (options.COUNT) {
+      command.push("COUNT", options.COUNT);
+    }
+    const response = await axios.post(
+      env.UPSTASH_REDIS_REST_URL,
+      command,
+      {
+        headers: {
+          Authorization: `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        timeout: env.REDIS_CONNECT_TIMEOUT_MS,
+      }
+    );
+    const [nextCursor, keys] = response.data.result || ["0", []];
+    return { cursor: nextCursor, keys };
+  },
+  async ping() {
+    const response = await axios.post(
+      env.UPSTASH_REDIS_REST_URL,
+      ["PING"],
+      {
+        headers: {
+          Authorization: `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        timeout: env.REDIS_CONNECT_TIMEOUT_MS,
+      }
+    );
+    return response.data.result;
+  }
+};
+
 
 function scopedKey(key) {
   return `${env.REDIS_PREFIX}:${key}`;
@@ -98,11 +191,16 @@ async function getRedisClient() {
     return null;
   }
 
+  if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
+    redisConnected = true;
+    return upstashRestClient;
+  }
+
   if (!env.REDIS_URL) {
     if (!missingConfigWarningShown) {
       missingConfigWarningShown = true;
 
-      logger.warn("CACHE_ENABLED is true but REDIS_URL is missing. Cache disabled.");
+      logger.warn("CACHE_ENABLED is true but REDIS_URL and Upstash REST config are missing. Cache disabled.");
     }
 
     return null;
@@ -155,6 +253,21 @@ async function getRedisClient() {
 async function warmupCacheConnection() {
   if (!isCacheConfigured()) {
     return false;
+  }
+
+  if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
+    try {
+      const res = await upstashRestClient.ping();
+      if (res === "PONG") {
+        logger.info("Upstash Redis Cache connected (HTTP REST)");
+        return true;
+      }
+      logger.error(`Upstash Redis PING returned unexpected result: ${res}`);
+      return false;
+    } catch (error) {
+      logger.error("Upstash Redis Cache connection failed", error);
+      return false;
+    }
   }
 
   const client = await getRedisClient();

@@ -5,6 +5,7 @@ const { PDFParse } = require("pdf-parse");
 
 const { env } = require("../config/env");
 const { logger } = require("../utils/logger");
+const { getOrSetJson, hashPayload } = require("../config/cache");
 
 const { extractEntities } = require("./nlp.service");
 const { extractText } = require("./parser.service");
@@ -1332,75 +1333,94 @@ async function generateInterviewQuestions(options = {}) {
     maxQuestions,
   });
 
-  let lastError = null;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      logger.info(`Calling AI interview generation API (Attempt ${attempt})`);
-
-      const generatedText = normalizeText(
-        await callChatCompletion(promptText, 0.2, MAX_OUTPUT_TOKENS)
-      );
-
-      if (!generatedText) {
-        throw new Error("Empty AI interview generation response");
-      }
-
-      const parsed = extractJson(generatedText);
-      if (!parsed || !Array.isArray(parsed.questions) || parsed.questions.length === 0) {
-        throw new Error("Failed to parse AI response or questions array is empty/missing");
-      }
-
-      const questions = parsed.questions
-        .map(normalizeInterviewQuestion)
-        .filter((question) => question.q)
-        .slice(0, maxQuestions);
-
-      if (questions.length === 0) {
-        throw new Error("No valid questions could be extracted from AI response");
-      }
-
-      return {
-        modelOutput: generatedText,
-        parsed: { ...parsed, questions },
-        questions,
-      };
-    } catch (error) {
-      lastError = error;
-
-      const status = error.response?.status;
-      logger.warn(`AI interview generation attempt ${attempt} failed`, { status: status || error.message });
-
-      if (status && status >= 400 && status < 500 && status !== 429) {
-        break;
-      }
-
-      if (attempt < MAX_RETRIES) {
-        const delay = Math.min(attempt * 1000, 5000);
-        logger.info(`Retrying in ${delay}ms...`);
-        await sleep(delay);
-      }
-    }
-  }
-
-  // If AI generation failed completely, fall back to local questions
-  logger.warn("AI interview generation failed completely, falling back to local questions", {
-    error: lastError?.message,
-  });
-
-  const fallbackQuestions = generateLocalInterviewQuestions({
-    skills: Array.isArray(options.skills) ? options.skills.map((item) => normalizeText(String(item))).filter(Boolean) : [],
-    targetRole: normalizeText(options.targetRole),
-    interviewType: normalizeText(options.interviewType) || "technical",
-    difficulty: normalizeText(options.difficulty) || "medium",
+  const cacheKey = `ai:gemini:questions:${hashPayload({
+    resumeText: options.resumeText,
+    skills: options.skills,
+    targetRole: options.targetRole,
+    targetCompanies: options.targetCompanies,
+    interviewType: options.interviewType,
+    difficulty: options.difficulty,
     maxQuestions,
-  });
+  })}`;
 
-  return {
-    modelOutput: "Local fallback question generation (AI call failed)",
-    parsed: { questions: fallbackQuestions },
-    questions: fallbackQuestions,
-  };
+  try {
+    return await getOrSetJson(
+      cacheKey,
+      async () => {
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            logger.info(`Calling AI interview generation API (Attempt ${attempt})`);
+
+            const generatedText = normalizeText(
+              await callChatCompletion(promptText, 0.2, MAX_OUTPUT_TOKENS)
+            );
+
+            if (!generatedText) {
+              throw new Error("Empty AI interview generation response");
+            }
+
+            const parsed = extractJson(generatedText);
+            if (!parsed || !Array.isArray(parsed.questions) || parsed.questions.length === 0) {
+              throw new Error("Failed to parse AI response or questions array is empty/missing");
+            }
+
+            const questions = parsed.questions
+              .map(normalizeInterviewQuestion)
+              .filter((question) => question.q)
+              .slice(0, maxQuestions);
+
+            if (questions.length === 0) {
+              throw new Error("No valid questions could be extracted from AI response");
+            }
+
+            return {
+              modelOutput: generatedText,
+              parsed: { ...parsed, questions },
+              questions,
+            };
+          } catch (error) {
+            lastError = error;
+
+            const status = error.response?.status;
+            logger.warn(`AI interview generation attempt ${attempt} failed`, { status: status || error.message });
+
+            if (status && status >= 400 && status < 500 && status !== 429) {
+              break;
+            }
+
+            if (attempt < MAX_RETRIES) {
+              const delay = Math.min(attempt * 1000, 5000);
+              logger.info(`Retrying in ${delay}ms...`);
+              await sleep(delay);
+            }
+          }
+        }
+
+        throw lastError || new Error("AI interview generation failed");
+      },
+      env.CACHE_AI_TTL_SECONDS
+    );
+  } catch (error) {
+    logger.warn("AI interview generation failed completely, falling back to local questions", {
+      error: error?.message,
+    });
+
+    const fallbackQuestions = generateLocalInterviewQuestions({
+      skills: Array.isArray(options.skills) ? options.skills.map((item) => normalizeText(String(item))).filter(Boolean) : [],
+      targetRole: normalizeText(options.targetRole),
+      interviewType: normalizeText(options.interviewType) || "technical",
+      difficulty: normalizeText(options.difficulty) || "medium",
+      maxQuestions,
+    });
+
+    return {
+      modelOutput: "Local fallback question generation (AI call failed)",
+      parsed: { questions: fallbackQuestions },
+      questions: fallbackQuestions,
+    };
+  }
 }
 
 function buildAnswerEvaluationPrompt({
@@ -1444,53 +1464,71 @@ async function evaluateInterviewAnswer(options = {}) {
     interviewType: normalizeText(options.interviewType),
   });
 
-  let lastError = null;
+  const cacheKey = `ai:gemini:evaluate:${hashPayload({
+    questionText: options.questionText,
+    answerText: options.answerText,
+    resumeText: options.resumeText,
+    interviewType: options.interviewType,
+  })}`;
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      logger.info(`Calling AI answer evaluation API (Attempt ${attempt})`);
+  try {
+    return await getOrSetJson(
+      cacheKey,
+      async () => {
+        let lastError = null;
 
-      const generatedText = normalizeText(
-        await callChatCompletion(promptText, 0.1, MAX_OUTPUT_TOKENS)
-      );
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+          try {
+            logger.info(`Calling AI answer evaluation API (Attempt ${attempt})`);
 
-      if (!generatedText) {
-        throw new Error("Empty AI answer evaluation response");
-      }
+            const generatedText = normalizeText(
+              await callChatCompletion(promptText, 0.1, MAX_OUTPUT_TOKENS)
+            );
 
-      const parsed = extractJson(generatedText);
-      if (!parsed || typeof parsed !== "object") {
-        throw new Error("Failed to parse AI evaluation output as JSON");
-      }
+            if (!generatedText) {
+              throw new Error("Empty AI answer evaluation response");
+            }
 
-      const score = Number.isFinite(Number(parsed.score))
-        ? Math.max(0, Math.min(100, Math.round(Number(parsed.score))))
-        : 50;
+            const parsed = extractJson(generatedText);
+            if (!parsed || typeof parsed !== "object") {
+              throw new Error("Failed to parse AI evaluation output as JSON");
+            }
 
-      return {
-        score,
-        note: normalizeText(parsed.note || parsed.feedback || ""),
-        strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map(s => normalizeText(String(s))).filter(Boolean) : [],
-        improvements: Array.isArray(parsed.improvements) ? parsed.improvements.map(i => normalizeText(String(i))).filter(Boolean) : [],
-      };
-    } catch (error) {
-      lastError = error;
-      const status = error.response?.status;
-      logger.warn(`AI answer evaluation attempt ${attempt} failed`, { status: status || error.message });
+            const score = Number.isFinite(Number(parsed.score))
+              ? Math.max(0, Math.min(100, Math.round(Number(parsed.score))))
+              : 50;
 
-      if (status && status >= 400 && status < 500 && status !== 429) {
-        break;
-      }
+            return {
+              score,
+              note: normalizeText(parsed.note || parsed.feedback || ""),
+              strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map(s => normalizeText(String(s))).filter(Boolean) : [],
+              improvements: Array.isArray(parsed.improvements) ? parsed.improvements.map(i => normalizeText(String(i))).filter(Boolean) : [],
+            };
+          } catch (error) {
+            lastError = error;
+            const status = error.response?.status;
+            logger.warn(`AI answer evaluation attempt ${attempt} failed`, { status: status || error.message });
 
-      if (attempt < MAX_RETRIES) {
-        const delay = Math.min(attempt * 1000, 5000);
-        logger.info(`Retrying in ${delay}ms...`);
-        await sleep(delay);
-      }
-    }
+            if (status && status >= 400 && status < 500 && status !== 429) {
+              break;
+            }
+
+            if (attempt < MAX_RETRIES) {
+              const delay = Math.min(attempt * 1000, 5000);
+              logger.info(`Retrying in ${delay}ms...`);
+              await sleep(delay);
+            }
+          }
+        }
+
+        throw lastError || new Error("AI answer evaluation failed");
+      },
+      env.CACHE_AI_TTL_SECONDS
+    );
+  } catch (error) {
+    logger.error("AI answer evaluation failed completely:", error.message);
+    return null;
   }
-
-  return null;
 }
 
 async function generateInterviewCoachChat(messages = [], context = {}) {

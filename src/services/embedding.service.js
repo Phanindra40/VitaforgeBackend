@@ -1,7 +1,9 @@
 const axios = require("axios");
 const { env } = require("../config/env");
+const { getOrSetJson, hashPayload } = require("../config/cache");
 
 const MODEL_URL = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2";
+
 
 function cosineSimilarity(vecA, vecB) {
   if (!Array.isArray(vecA) || !Array.isArray(vecB) || vecA.length !== vecB.length) return 0;
@@ -21,33 +23,46 @@ function cosineSimilarity(vecA, vecB) {
 }
 
 async function getEmbedding(text) {
-  if (!env.HF_API_KEY) {
-    throw new Error("HF_API_KEY is missing");
+  const normalizedText = (text || "").trim();
+  if (!normalizedText) {
+    return [];
   }
 
-  const response = await axios.post(
-    MODEL_URL,
-    { inputs: text },
-    {
-      headers: {
-        Authorization: `Bearer ${env.HF_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      timeout: 30000,
-    }
+  const cacheKey = `ai:embedding:${hashPayload(normalizedText)}`;
+
+  return getOrSetJson(
+    cacheKey,
+    async () => {
+      if (!env.HF_API_KEY) {
+        throw new Error("HF_API_KEY is missing");
+      }
+
+      const response = await axios.post(
+        MODEL_URL,
+        { inputs: normalizedText },
+        {
+          headers: {
+            Authorization: `Bearer ${env.HF_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 30000,
+        }
+      );
+
+      if (!Array.isArray(response.data)) {
+        throw new Error("Unexpected embedding response format");
+      }
+
+      const result = Array.isArray(response.data[0]) ? response.data[0] : response.data;
+
+      if (!result.length || typeof result[0] !== "number") {
+        throw new Error("Invalid embedding elements in response");
+      }
+
+      return result;
+    },
+    env.CACHE_AI_TTL_SECONDS
   );
-
-  if (!Array.isArray(response.data)) {
-    throw new Error("Unexpected embedding response format");
-  }
-
-  const result = Array.isArray(response.data[0]) ? response.data[0] : response.data;
-
-  if (!result.length || typeof result[0] !== "number") {
-    throw new Error("Invalid embedding elements in response");
-  }
-
-  return result;
 }
 
 async function semanticMatchScore(resumeText, jobText) {

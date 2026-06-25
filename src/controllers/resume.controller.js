@@ -64,6 +64,9 @@ function normalizeResumePayload(body = {}) {
     projects: body.projects,
     education: body.education,
     skills: body.skills,
+    certifications: body.certifications,
+    customSections: body.customSections,
+    sectionOrder: body.sectionOrder,
     sectionTitles: body.sectionTitles,
     
     // Legacy fields
