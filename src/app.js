@@ -61,7 +61,7 @@ function isAllowedCorsOrigin(origin) {
       hostname === "localhost" ||
       hostname === "127.0.0.1" ||
       hostname === "vitaforge.co.in" ||
-      hostname === "www.vitaforge.co.in" ||
+      hostname.endsWith(".vitaforge.co.in") ||
       hostname.endsWith(".netlify.app") ||
       hostname.endsWith(".vercel.app") ||
       hostname.endsWith(".bonto.run")
